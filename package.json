@@ -1,0 +1,14 @@
+{
+  "name": "pasta",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.min.js",
+  "scripts": {
+    "test": "deno test src/index.test.ts",
+    "build": "deno bundle src/index.ts index.min.js",
+    "prepublishOnly": "npm run build"
+  },
+  "author": "",
+  "keywords": [],
+  "license": "MIT"
+}
