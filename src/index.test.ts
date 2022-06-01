@@ -21,12 +21,18 @@ Deno.test("insert", () => {
 });
 
 Deno.test("returning", () => {
-  const insertUserStatement = insert("user")({ data: "test" }).returning([
+  const insertUserBuilder = insert("user")({ data: "test" }).returning([
     "data",
-  ]).toSql();
+  ]);
 
   assertEquals(
-    insertUserStatement,
+    insertUserBuilder.toSql(),
     `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
+  );
+
+  assertEquals(
+    insertUserBuilder.returning(["data"]).toSql(),
+    `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
+    "Should be idempotent",
   );
 });
