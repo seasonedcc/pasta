@@ -19,3 +19,14 @@ Deno.test("insert", () => {
     `INSERT INTO "user"  (data) VALUES (('test'))`,
   );
 });
+
+Deno.test("returning", () => {
+  const insertUserStatement = insert("user")({ data: "test" }).returning({
+    data: true,
+  }).toSql();
+
+  assertEquals(
+    insertUserStatement,
+    `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
+  );
+});

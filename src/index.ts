@@ -1,5 +1,7 @@
 import {
+  astMapper,
   Expr,
+  Name,
   parseFirst,
   Statement,
   toSql,
@@ -23,14 +25,67 @@ type MockSchema = {
 };
 
 type Tables = MockSchema;
-type StatementBuilder = {
+
+type ReturningOptions<T extends keyof Tables> = {
+  [Property in keyof Tables[T]["columns"]]: boolean;
+};
+
+const returningMapper = (columnNames: Name[]) =>
+  astMapper((map) => ({
+    insert: (t) => {
+      if (t.returning) {
+        return {
+          ...t,
+          columnNames,
+        };
+      }
+      if (t.insert) {
+        return {
+          ...t,
+          returning: [{ expr: { type: "ref", name: "data" } }],
+        };
+      }
+
+      // call the default implementation of 'tableRef'
+      // this will ensure that the subtree is also traversed.
+      return map.super().insert(t);
+    },
+  }));
+
+type AddReturning<T extends keyof Tables> = (
+  options: ReturningOptions<T>,
+) => StatementBuilder<T>;
+
+const addReturning: <T extends keyof Tables>(
+  builder: SeedBuilder,
+) => AddReturning<T> = (
+  builder,
+) =>
+  (options) => {
+    const statementWithReturning = returningMapper([{ name: "data" } as Name])
+      .statement(
+        builder.statement,
+      )!;
+    const seedBuilder = {
+      statement: statementWithReturning,
+      toSql: () => toSql.statement(statementWithReturning),
+    };
+    const returning = addReturning(seedBuilder);
+    return { ...seedBuilder, returning };
+  };
+
+type SeedBuilder = {
   statement: Statement;
   toSql: () => string;
 };
 
+type StatementBuilder<T extends keyof Tables> = SeedBuilder & {
+  returning: AddReturning<T>;
+};
+
 type InsertBuilder = <T extends keyof Tables>(
   table: T,
-) => (values: Tables[T]["columns"]) => StatementBuilder;
+) => (values: Tables[T]["columns"]) => StatementBuilder<T>;
 
 const insert: InsertBuilder = (table) =>
   (valueMap) => {
@@ -47,10 +102,12 @@ const insert: InsertBuilder = (table) =>
       },
       columns,
     };
-    return {
+    const seedBuilder = {
       toSql: () => toSql.statement(statement),
       statement,
     };
+    const returning = addReturning(seedBuilder);
+    return { ...seedBuilder, returning };
   };
 
 export { insert, pgVersion, uuid };
