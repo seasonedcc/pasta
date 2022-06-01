@@ -9,6 +9,12 @@ import {
 
 type UUIDFunctionCall = ExprCall & { returnType: "uuid" };
 type TimestampFunctionCall = ExprCall & { returnType: "timestamp" };
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | { [x: string]: JSONValue }
+  | Array<JSONValue>;
 
 const uuid = () => (
   {
@@ -33,6 +39,7 @@ type MockSchema = {
     columns: {
       data: string;
       created_at?: string | TimestampFunctionCall;
+      tags?: JSONValue;
     };
   };
   account: {
@@ -108,7 +115,12 @@ const insert: InsertBuilder = (table) =>
     const values = [
       Object.values(valueMap).map((
         value,
-      ) => (typeof value === "string" ? { value, type: "string" } : value)),
+      ) => (typeof value === "string"
+        ? { value, type: "string" }
+        : (typeof value === "object" && "returnType" in value)
+        ? value
+        : { value: JSON.stringify(value), type: "string" })
+      ),
     ] as Expr[][];
     const statement: Statement = {
       "type": "insert",

@@ -11,6 +11,18 @@ Deno.test("insert", () => {
   );
 });
 
+Deno.test("insert json", () => {
+  const insertWithJson = insert("user")({
+    data: "test",
+    tags: [{ someKey: "some value" }],
+  }).toSql();
+
+  assertEquals(
+    insertWithJson,
+    `INSERT INTO "user"  (data, tags) VALUES (('test'), ('[{"someKey":"some value"}]'))`,
+  );
+});
+
 Deno.test("returning", () => {
   const insertUserBuilder = insert("user")({ data: "test" }).returning([
     "data",
