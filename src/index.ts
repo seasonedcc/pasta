@@ -48,12 +48,11 @@ const returningMapper = (columnNames: Name[]) =>
     },
   }));
 
-type ReturningOptions<T extends keyof Tables> = {
-  [Property in keyof Tables[T]["columns"]]: boolean;
-};
+type ReturningOptions<T extends keyof Tables> = [keyof Tables[T]["columns"]];
 type Returning<T extends keyof Tables> = (
   options: ReturningOptions<T>,
 ) => StatementBuilder<T>;
+
 type SeedBuilder = {
   statement: Statement;
   toSql: () => string;
@@ -63,13 +62,12 @@ type StatementBuilder<T extends keyof Tables> = SeedBuilder & {
   returning: Returning<T>;
 };
 
-const addReturning: <T extends keyof Tables>(
-  builder: SeedBuilder,
-) => Returning<T> = (
-  builder,
-) =>
-  (options) => {
-    const statementWithReturning = returningMapper([{ name: "data" } as Name])
+function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
+  return function (options: ReturningOptions<T>): StatementBuilder<T> {
+    const returningColumns = options.map((c) => ({
+      name: c,
+    } as Name));
+    const statementWithReturning = returningMapper(returningColumns)
       .statement(
         builder.statement,
       )!;
@@ -77,9 +75,10 @@ const addReturning: <T extends keyof Tables>(
       statement: statementWithReturning,
       toSql: () => toSql.statement(statementWithReturning),
     };
-    const returning = addReturning(seedBuilder);
+    const returning = addReturning<T>(seedBuilder);
     return { ...seedBuilder, returning };
   };
+}
 
 type InsertBuilder = <T extends keyof Tables>(
   table: T,
@@ -104,7 +103,7 @@ const insert: InsertBuilder = (table) =>
       toSql: () => toSql.statement(statement),
       statement,
     };
-    const returning = addReturning(seedBuilder);
+    const returning = addReturning(seedBuilder) as Returning<typeof table>;
     return { ...seedBuilder, returning };
   };
 

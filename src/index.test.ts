@@ -21,9 +21,9 @@ Deno.test("insert", () => {
 });
 
 Deno.test("returning", () => {
-  const insertUserStatement = insert("user")({ data: "test" }).returning({
-    data: true,
-  }).toSql();
+  const insertUserStatement = insert("user")({ data: "test" }).returning([
+    "data",
+  ]).toSql();
 
   assertEquals(
     insertUserStatement,
