@@ -1,15 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
-import { toSql } from "https://deno.land/x/pgsql_ast_parser/mod.ts";
 
-import { insert, pgVersion, uuid } from "./index.ts";
-
-Deno.test("pgVersion", () => {
-  assertEquals(toSql.statement(pgVersion()), "SELECT (version () )");
-});
-
-Deno.test("uuid", () => {
-  assertEquals(toSql.statement(uuid()), "SELECT (gen_random_uuid () )");
-});
+import { insert, now } from "./index.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ data: "test" }).toSql();
@@ -34,5 +25,17 @@ Deno.test("returning", () => {
     insertUserBuilder.returning(["data"]).toSql(),
     `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
     "Should be idempotent",
+  );
+});
+
+Deno.test("now", () => {
+  const insertUserStatement = insert("user")({
+    data: "test",
+    created_at: now(),
+  }).toSql();
+
+  assertEquals(
+    insertUserStatement,
+    `INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))`,
   );
 });

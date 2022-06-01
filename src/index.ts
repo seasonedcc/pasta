@@ -1,20 +1,38 @@
 import {
   astMapper,
   Expr,
+  ExprCall,
   Name,
-  parseFirst,
   Statement,
   toSql,
 } from "https://deno.land/x/pgsql_ast_parser@10.2.0/mod.ts";
 
-const pgVersion = () => parseFirst("SELECT version()");
+type UUIDFunctionCall = ExprCall & { returnType: "uuid" };
+type TimestampFunctionCall = ExprCall & { returnType: "timestamp" };
 
-const uuid = () => parseFirst("SELECT gen_random_uuid()");
+const uuid = () => (
+  {
+    "type": "call",
+    "function": { "name": "gen_random_uuid" },
+    "args": [],
+    "returnType": "uuid",
+  } as UUIDFunctionCall
+);
+
+const now = () => (
+  {
+    "type": "call",
+    "function": { "name": "now" },
+    "args": [],
+    "returnType": "timestamp",
+  } as TimestampFunctionCall
+);
 
 type MockSchema = {
   user: {
     columns: {
       data: string;
+      created_at?: string | TimestampFunctionCall;
     };
   };
   account: {
@@ -88,7 +106,9 @@ const insert: InsertBuilder = (table) =>
   (valueMap) => {
     const columns = Object.keys(valueMap).map((k) => ({ name: k }));
     const values = [
-      Object.values(valueMap).map((value) => ({ value, type: "string" })),
+      Object.values(valueMap).map((
+        value,
+      ) => (typeof value === "string" ? { value, type: "string" } : value)),
     ] as Expr[][];
     const statement: Statement = {
       "type": "insert",
@@ -107,4 +127,4 @@ const insert: InsertBuilder = (table) =>
     return { ...seedBuilder, returning };
   };
 
-export { insert, pgVersion, uuid };
+export { insert, now, uuid };
