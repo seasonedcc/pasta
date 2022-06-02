@@ -54,12 +54,6 @@ type Tables = MockSchema;
 const returningMapper = (columnNames: Name[]) =>
   astMapper((map) => ({
     insert: (t) => {
-      if (t.returning) {
-        return {
-          ...t,
-          columnNames,
-        };
-      }
       if (t.insert) {
         return {
           ...t,
