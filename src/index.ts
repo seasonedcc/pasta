@@ -51,20 +51,6 @@ type MockSchema = {
 
 type Tables = MockSchema;
 
-const returningMapper = (columnNames: Name[]) =>
-  astMapper((_map) => ({
-    insert: (t) => {
-      if (t.insert) {
-        return {
-          ...t,
-          returning: columnNames.map((c) => ({
-            expr: { type: "ref", name: c.name },
-          })),
-        };
-      }
-    },
-  }));
-
 type ReturningOptions<T extends keyof Tables> = (keyof Tables[T]["columns"])[];
 
 type Returning<T extends keyof Tables> = (
@@ -79,6 +65,24 @@ type SeedBuilder = {
 type StatementBuilder<T extends keyof Tables> = SeedBuilder & {
   returning: Returning<T>;
 };
+
+type InsertBuilder = <T extends keyof Tables>(
+  table: T,
+) => (values: Tables[T]["columns"]) => StatementBuilder<T>;
+
+const returningMapper = (columnNames: Name[]) =>
+  astMapper((_map) => ({
+    insert: (t) => {
+      if (t.insert) {
+        return {
+          ...t,
+          returning: columnNames.map((c) => ({
+            expr: { type: "ref", name: c.name },
+          })),
+        };
+      }
+    },
+  }));
 
 function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
   return function (options: ReturningOptions<T>): StatementBuilder<T> {
@@ -97,10 +101,6 @@ function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
     return { ...seedBuilder, returning };
   };
 }
-
-type InsertBuilder = <T extends keyof Tables>(
-  table: T,
-) => (values: Tables[T]["columns"]) => StatementBuilder<T>;
 
 const insert: InsertBuilder = (table) =>
   (valueMap) => {
