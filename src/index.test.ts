@@ -70,7 +70,7 @@ Deno.test("update", () => {
   );
 });
 
-Deno.test("update wiith multiple keys", () => {
+Deno.test("update with multiple keys", () => {
   const upsertUserAccountBuilderWithCompositeKey = update("user_account")({
     user_id: 1,
     account_id: 2,
