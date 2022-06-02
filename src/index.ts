@@ -206,25 +206,22 @@ const upsert: UpsertBuilder = (table) => {
 
 const update: UpdateBuilder = (table) =>
   (keyValues, setValues) => {
+    const binaryOp = (op: string) =>
+      (left: Expr, right: Expr) =>
+        (
+          {
+            "type": "binary",
+            left,
+            right,
+            op,
+          }
+        ) as Expr;
     const eq = (name: string, value: string) =>
-      (
-        {
-          "type": "binary",
-          "left": { "type": "ref", name },
-          "right": {
-            "type": "string",
-            value,
-          },
-          "op": "=",
-        }
-      ) as Expr;
-    const and = (left: Expr, right: Expr) =>
-      ({
-        "type": "binary",
-        left,
-        right,
-        "op": "AND",
+      binaryOp("=")({ "type": "ref", name }, {
+        "type": "string",
+        value,
       }) as Expr;
+    const and = binaryOp("AND");
     const statement: Statement = {
       "type": "update",
       "table": { "name": table },
