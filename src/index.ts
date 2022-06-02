@@ -36,14 +36,36 @@ const now = () => (
 
 type MockSchema = {
   user: {
+    keys: {
+      id: number;
+    };
     columns: {
+      id?: number;
       data: string;
       created_at?: string | TimestampFunctionCall;
       tags?: JSONValue;
     };
   };
-  account: {
+  user_account: {
+    keys: {
+      id: number;
+    } | {
+      user_id: number;
+      account_id: number;
+    };
     columns: {
+      id?: number;
+      user_id: number;
+      account_id: number;
+      created_at?: string | TimestampFunctionCall;
+    };
+  };
+  account: {
+    keys: {
+      id: number;
+    };
+    columns: {
+      id?: number;
       name: string;
     };
   };
@@ -75,6 +97,13 @@ type UpsertBuilder = <T extends keyof Tables>(
 ) => (
   insertValues: Tables[T]["columns"],
   updateValues?: Tables[T]["columns"],
+) => StatementBuilder<T>;
+
+type UpdateBuilder = <T extends keyof Tables>(
+  table: T,
+) => (
+  keyValues: Tables[T]["keys"],
+  setValues: Tables[T]["columns"],
 ) => StatementBuilder<T>;
 
 function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
@@ -175,4 +204,60 @@ const upsert: UpsertBuilder = (table) => {
   };
 };
 
-export { insert, now, upsert, uuid };
+const update: UpdateBuilder = (table) =>
+  (keyValues, setValues) => {
+    const eq = (name: string, value: string) =>
+      (
+        {
+          "type": "binary",
+          "left": { "type": "ref", name },
+          "right": {
+            "type": "string",
+            value,
+          },
+          "op": "=",
+        }
+      ) as Expr;
+    const and = (left: Expr, right: Expr) =>
+      ({
+        "type": "binary",
+        left,
+        right,
+        "op": "AND",
+      }) as Expr;
+    const statement: Statement = {
+      "type": "update",
+      "table": { "name": table },
+      "sets": Object.keys(setValues).map((k) => ({
+        "column": { "name": k },
+        "value": {
+          "type": "string",
+          "value": String((setValues as Record<string, unknown>)[k]),
+        },
+      })),
+      "where": Object.keys(keyValues).reduce(
+        (previousValue, currentValue) => {
+          const currentEquality = eq(
+            currentValue,
+            String(
+              (keyValues as Record<string, unknown>)[currentValue],
+            ),
+          );
+          return (
+            ("type" in previousValue)
+              ? and(previousValue as Expr, currentEquality)
+              : currentEquality
+          );
+        },
+        {},
+      ) as Expr,
+    };
+    const seedBuilder = {
+      statement,
+      toSql: () => toSql.statement(statement),
+    };
+    const returning = addReturning(seedBuilder) as Returning<typeof table>;
+    return { ...seedBuilder, returning };
+  };
+
+export { insert, now, update, upsert, uuid };
