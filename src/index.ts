@@ -67,9 +67,7 @@ const returningMapper = (columnNames: Name[]) =>
         };
       }
 
-      // call the default implementation of 'tableRef'
-      // this will ensure that the subtree is also traversed.
-      return map.super().insert(t);
+      return map.insert(t);
     },
   }));
 
