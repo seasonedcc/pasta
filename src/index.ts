@@ -70,21 +70,28 @@ type InsertBuilder = <T extends keyof Tables>(
   table: T,
 ) => (values: Tables[T]["columns"]) => StatementBuilder<T>;
 
-const returningMapper = (columnNames: Name[]) =>
-  astMapper((_map) => ({
-    insert: (t) => {
-      if (t.insert) {
-        return {
-          ...t,
-          returning: columnNames.map((c) => ({
-            expr: { type: "ref", name: c.name },
-          })),
-        };
-      }
-    },
-  }));
+type UpsertBuilder = <T extends keyof Tables>(
+  table: T,
+) => (
+  insertValues: Tables[T]["columns"],
+  updateValues?: Tables[T]["columns"],
+) => StatementBuilder<T>;
 
 function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
+  const returningMapper = (columnNames: Name[]) =>
+    astMapper((_map) => ({
+      insert: (t) => {
+        if (t.insert) {
+          return {
+            ...t,
+            returning: columnNames.map((c) => ({
+              expr: { type: "ref", name: c.name },
+            })),
+          };
+        }
+      },
+    }));
+
   return function (options: ReturningOptions<T>): StatementBuilder<T> {
     const returningColumns = options.map((c) => ({
       name: c,
@@ -132,4 +139,40 @@ const insert: InsertBuilder = (table) =>
     return { ...seedBuilder, returning };
   };
 
-export { insert, now, uuid };
+const upsert: UpsertBuilder = (table) => {
+  const onConflictMapper = (conflictValues: Record<string, unknown>) =>
+    astMapper((_map) => ({
+      insert: (t) => {
+        if (t.insert) {
+          return {
+            ...t,
+            onConflict: {
+              "do": {
+                "sets": Object.keys(conflictValues).map((k) => ({
+                  "column": { "name": k },
+                  "value": {
+                    "type": "string",
+                    "value": String(conflictValues[k]),
+                  },
+                })),
+              },
+            },
+          };
+        }
+      },
+    }));
+
+  return (insertValues, updateValues) => {
+    const { statement } = insert(table)(insertValues);
+    const withOnConflict = onConflictMapper(updateValues || insertValues)
+      .statement(statement)!;
+    const seedBuilder = {
+      toSql: () => toSql.statement(statement),
+      statement: withOnConflict,
+    };
+    const returning = addReturning(seedBuilder) as Returning<typeof table>;
+    return { ...seedBuilder, returning };
+  };
+};
+
+export { insert, now, upsert, uuid };

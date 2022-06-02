@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
 
-import { insert, now } from "./index.ts";
+import { insert, now, upsert } from "./index.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ data: "test" }).toSql();
@@ -37,6 +37,17 @@ Deno.test("returning", () => {
   assertEquals(
     insertUserBuilder.returning(["data", "tags"]).toSql(),
     `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data , tags`,
+  );
+});
+
+Deno.test("upsert", () => {
+  const upsertUserBuilder = upsert("user")({ data: "test" }).returning([
+    "data",
+  ]);
+
+  assertEquals(
+    upsertUserBuilder.toSql(),
+    `INSERT INTO "user"  (data) VALUES (('test')) ON CONFLICT  DO UPDATE SET data = ('test')   RETURNING data`,
   );
 });
 
