@@ -52,20 +52,21 @@ type MockSchema = {
 type Tables = MockSchema;
 
 const returningMapper = (columnNames: Name[]) =>
-  astMapper((map) => ({
+  astMapper((_map) => ({
     insert: (t) => {
       if (t.insert) {
         return {
           ...t,
-          returning: [{ expr: { type: "ref", name: "data" } }],
+          returning: columnNames.map((c) => ({
+            expr: { type: "ref", name: c.name },
+          })),
         };
       }
-
-      return map.insert(t);
     },
   }));
 
-type ReturningOptions<T extends keyof Tables> = [keyof Tables[T]["columns"]];
+type ReturningOptions<T extends keyof Tables> = (keyof Tables[T]["columns"])[];
+
 type Returning<T extends keyof Tables> = (
   options: ReturningOptions<T>,
 ) => StatementBuilder<T>;

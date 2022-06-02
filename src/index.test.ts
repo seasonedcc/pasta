@@ -33,10 +33,10 @@ Deno.test("returning", () => {
     `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
   );
 
+  // Should replace returning fields
   assertEquals(
-    insertUserBuilder.returning(["data"]).toSql(),
-    `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
-    "Should be idempotent",
+    insertUserBuilder.returning(["data", "tags"]).toSql(),
+    `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data , tags`,
   );
 });
 
