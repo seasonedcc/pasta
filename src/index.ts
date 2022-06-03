@@ -73,8 +73,10 @@ type MockSchema = {
 
 type Tables = MockSchema;
 type TableName = keyof Tables;
+type KeysOf<T extends TableName> = Tables[T]["keys"];
+type ColumnsOf<T extends TableName> = Tables[T]["columns"];
 
-type ReturningOptions<T extends TableName> = (keyof Tables[T]["columns"])[];
+type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
 
 type Returning<T extends TableName> = (
   options: ReturningOptions<T>,
@@ -91,20 +93,20 @@ type StatementBuilder<T extends TableName> = SeedBuilder & {
 
 type InsertBuilder = <T extends TableName>(
   table: T,
-) => (values: Tables[T]["columns"]) => StatementBuilder<T>;
+) => (values: ColumnsOf<T>) => StatementBuilder<T>;
 
 type UpsertBuilder = <T extends TableName>(
   table: T,
 ) => (
-  insertValues: Tables[T]["columns"],
-  updateValues?: Tables[T]["columns"],
+  insertValues: ColumnsOf<T>,
+  updateValues?: ColumnsOf<T>,
 ) => StatementBuilder<T>;
 
 type UpdateBuilder = <T extends TableName>(
   table: T,
 ) => (
-  keyValues: Tables[T]["keys"],
-  setValues: Tables[T]["columns"],
+  keyValues: KeysOf<T>,
+  setValues: ColumnsOf<T>,
 ) => StatementBuilder<T>;
 
 function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
