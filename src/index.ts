@@ -45,6 +45,7 @@ type MockSchema = {
       created_at?: string | TimestampFunctionCall;
       tags?: JSONValue;
     };
+    associations: "user_account" | "account";
   };
   user_account: {
     keys: {
@@ -59,6 +60,7 @@ type MockSchema = {
       account_id: number;
       created_at?: string | TimestampFunctionCall;
     };
+    associations: "user" | "account";
   };
   account: {
     keys: {
@@ -68,6 +70,7 @@ type MockSchema = {
       id?: number;
       name: string;
     };
+    associations: "user_account" | "user";
   };
 };
 
@@ -75,6 +78,7 @@ type Tables = MockSchema;
 type TableName = keyof Tables;
 type KeysOf<T extends TableName> = Tables[T]["keys"];
 type ColumnsOf<T extends TableName> = Tables[T]["columns"];
+type AssociationsOf<T extends TableName> = Tables[T]["associations"];
 
 type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
 
@@ -83,6 +87,7 @@ type Returning<T extends TableName> = (
 ) => StatementBuilder<T>;
 
 type SeedBuilder = {
+  table: TableName;
   statement: Statement;
   toSql: () => string;
 };
@@ -109,7 +114,20 @@ type UpdateBuilder = <T extends TableName>(
   setValues: ColumnsOf<T>,
 ) => StatementBuilder<T>;
 
-function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
+type AssociateWith = <T1 extends TableName>(
+  st1: StatementBuilder<T1>,
+) => <T2 extends AssociationsOf<T1>>(
+  st2: StatementBuilder<T2>,
+) => StatementBuilder<T1>;
+
+const associations: [TableName, TableName, Record<string, string>][] = [
+  ["user", "user_account", { id: "user_id" }],
+  ["user_account", "account", { account_id: "id" }],
+  ["user_account", "user", { user_id: "id" }],
+  ["account", "user_account", { id: "account_id" }],
+];
+
+function addReturning<T extends TableName>(builder: SeedBuilder) {
   const returningMapper = (columnNames: Name[]) =>
     astMapper((_map) => ({
       insert: (t) => {
@@ -133,6 +151,7 @@ function addReturning<T extends keyof Tables>(builder: SeedBuilder) {
         builder.statement,
       )!;
     const seedBuilder = {
+      table: builder.table,
       statement: statementWithReturning,
       toSql: () => toSql.statement(statementWithReturning),
     };
@@ -164,6 +183,7 @@ const insert: InsertBuilder = (table) =>
       columns,
     };
     const seedBuilder = {
+      table,
       toSql: () => toSql.statement(statement),
       statement,
     };
@@ -199,6 +219,7 @@ const upsert: UpsertBuilder = (table) => {
     const withOnConflict = onConflictMapper(updateValues || insertValues)
       .statement(statement)!;
     const seedBuilder = {
+      table,
       toSql: () => toSql.statement(statement),
       statement: withOnConflict,
     };
@@ -253,11 +274,24 @@ const update: UpdateBuilder = (table) =>
       ) as Expr,
     };
     const seedBuilder = {
+      table,
       statement,
       toSql: () => toSql.statement(statement),
     };
     const returning = addReturning(seedBuilder) as Returning<typeof table>;
     return { ...seedBuilder, returning };
   };
+
+// Association code draft, we will need a CTE query builder for this
+// const associateWithMxN: AssociateWith = (st1) =>
+//   (st2) => {
+//     st2.returning(["id"]);
+//     st1.returning(["id"]);
+//     insert("user_account")({
+//       user_id: withValue("user_id"),
+//       account_id: withValue("account_id"),
+//     });
+//     return (null as any);
+//   };
 
 export { insert, now, update, upsert, uuid };

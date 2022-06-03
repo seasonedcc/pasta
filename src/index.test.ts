@@ -96,3 +96,16 @@ Deno.test("now", () => {
     `INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))`,
   );
 });
+
+// Draft for association final API
+// Deno.test("insert with associations", () => {
+//   const insertUserStatement = insert("user")({
+//     data: "test",
+//     created_at: now(),
+//   }).associateWith(insert("account")({ name: "some account" }));
+
+//   assertEquals(
+//     insertUserStatement,
+//     `INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))`,
+//   );
+// });
