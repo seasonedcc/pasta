@@ -72,10 +72,11 @@ type MockSchema = {
 };
 
 type Tables = MockSchema;
+type TableName = keyof Tables;
 
-type ReturningOptions<T extends keyof Tables> = (keyof Tables[T]["columns"])[];
+type ReturningOptions<T extends TableName> = (keyof Tables[T]["columns"])[];
 
-type Returning<T extends keyof Tables> = (
+type Returning<T extends TableName> = (
   options: ReturningOptions<T>,
 ) => StatementBuilder<T>;
 
@@ -84,22 +85,22 @@ type SeedBuilder = {
   toSql: () => string;
 };
 
-type StatementBuilder<T extends keyof Tables> = SeedBuilder & {
+type StatementBuilder<T extends TableName> = SeedBuilder & {
   returning: Returning<T>;
 };
 
-type InsertBuilder = <T extends keyof Tables>(
+type InsertBuilder = <T extends TableName>(
   table: T,
 ) => (values: Tables[T]["columns"]) => StatementBuilder<T>;
 
-type UpsertBuilder = <T extends keyof Tables>(
+type UpsertBuilder = <T extends TableName>(
   table: T,
 ) => (
   insertValues: Tables[T]["columns"],
   updateValues?: Tables[T]["columns"],
 ) => StatementBuilder<T>;
 
-type UpdateBuilder = <T extends keyof Tables>(
+type UpdateBuilder = <T extends TableName>(
   table: T,
 ) => (
   keyValues: Tables[T]["keys"],
