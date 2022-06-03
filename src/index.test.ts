@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
+import { now } from "./pg-catalog.ts";
 
-import { insert, now, update, upsert } from "./index.ts";
+import { insert, insertWith, update, upsert } from "./index.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ data: "test" }).toSql();
@@ -97,15 +98,18 @@ Deno.test("now", () => {
   );
 });
 
-// Draft for association final API
-// Deno.test("insert with associations", () => {
-//   const insertUserStatement = insert("user")({
-//     data: "test",
-//     created_at: now(),
-//   }).associateWith(insert("account")({ name: "some account" }));
+Deno.test("insert with CTE without references", () => {
+  const insertUserStatement = insertWith(
+    insert("user")({
+      data: "test",
+      created_at: now(),
+    }).returning(["id"]),
+  )(insert("user_account")({ account_id: 0, user_id: 0 })).returning([
+    "created_at",
+  ]);
 
-//   assertEquals(
-//     insertUserStatement,
-//     `INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))`,
-//   );
-// });
+  assertEquals(
+    insertUserStatement.toSql(),
+    `WITH "user" AS (INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))  RETURNING id ) INSERT INTO user_account  (account_id, user_id) VALUES (('0'), ('0'))  RETURNING created_at`,
+  );
+});

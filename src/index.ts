@@ -1,81 +1,16 @@
 import {
   astMapper,
   Expr,
-  ExprCall,
+  InsertStatement,
   Name,
+  SelectStatement,
   Statement,
   toSql,
+  UpdateStatement,
+  WithStatement,
 } from "https://deno.land/x/pgsql_ast_parser@10.2.0/mod.ts";
+import { TableName, Tables } from "./mock-schema.ts";
 
-type UUIDFunctionCall = ExprCall & { returnType: "uuid" };
-type TimestampFunctionCall = ExprCall & { returnType: "timestamp" };
-type JSONValue =
-  | string
-  | number
-  | boolean
-  | { [x: string]: JSONValue }
-  | Array<JSONValue>;
-
-const uuid = () => (
-  {
-    "type": "call",
-    "function": { "name": "gen_random_uuid" },
-    "args": [],
-    "returnType": "uuid",
-  } as UUIDFunctionCall
-);
-
-const now = () => (
-  {
-    "type": "call",
-    "function": { "name": "now" },
-    "args": [],
-    "returnType": "timestamp",
-  } as TimestampFunctionCall
-);
-
-type MockSchema = {
-  user: {
-    keys: {
-      id: number;
-    };
-    columns: {
-      id?: number;
-      data: string;
-      created_at?: string | TimestampFunctionCall;
-      tags?: JSONValue;
-    };
-    associations: "user_account" | "account";
-  };
-  user_account: {
-    keys: {
-      id: number;
-    } | {
-      user_id: number;
-      account_id: number;
-    };
-    columns: {
-      id?: number;
-      user_id: number;
-      account_id: number;
-      created_at?: string | TimestampFunctionCall;
-    };
-    associations: "user" | "account";
-  };
-  account: {
-    keys: {
-      id: number;
-    };
-    columns: {
-      id?: number;
-      name: string;
-    };
-    associations: "user_account" | "user";
-  };
-};
-
-type Tables = MockSchema;
-type TableName = keyof Tables;
 type KeysOf<T extends TableName> = Tables[T]["keys"];
 type ColumnsOf<T extends TableName> = Tables[T]["columns"];
 type AssociationsOf<T extends TableName> = Tables[T]["associations"];
@@ -88,7 +23,11 @@ type Returning<T extends TableName> = (
 
 type SeedBuilder = {
   table: TableName;
-  statement: Statement;
+  statement:
+    | SelectStatement
+    | InsertStatement
+    | UpdateStatement
+    | WithStatement;
   toSql: () => string;
 };
 
@@ -114,22 +53,22 @@ type UpdateBuilder = <T extends TableName>(
   setValues: ColumnsOf<T>,
 ) => StatementBuilder<T>;
 
-type AssociateWith = <T1 extends TableName>(
-  st1: StatementBuilder<T1>,
-) => <T2 extends AssociationsOf<T1>>(
-  st2: StatementBuilder<T2>,
-) => StatementBuilder<T1>;
-
-const associations: [TableName, TableName, Record<string, string>][] = [
-  ["user", "user_account", { id: "user_id" }],
-  ["user_account", "account", { account_id: "id" }],
-  ["user_account", "user", { user_id: "id" }],
-  ["account", "user_account", { id: "account_id" }],
-];
-
 function addReturning<T extends TableName>(builder: SeedBuilder) {
   const returningMapper = (columnNames: Name[]) =>
     astMapper((_map) => ({
+      with: (t) => {
+        if (t.in.type === "insert") {
+          return {
+            ...t,
+            in: {
+              ...t.in,
+              returning: columnNames.map((c) => ({
+                expr: { type: "ref", name: c.name },
+              })),
+            },
+          };
+        }
+      },
       insert: (t) => {
         if (t.insert) {
           return {
@@ -142,22 +81,24 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
       },
     }));
 
-  return function (options: ReturningOptions<T>): StatementBuilder<T> {
+  const returning = function (
+    options: ReturningOptions<T>,
+  ): StatementBuilder<T> {
     const returningColumns = options.map((c) => ({
       name: c,
     } as Name));
     const statementWithReturning = returningMapper(returningColumns)
       .statement(
         builder.statement,
-      )!;
+      )! as InsertStatement;
     const seedBuilder = {
       table: builder.table,
       statement: statementWithReturning,
       toSql: () => toSql.statement(statementWithReturning),
     };
-    const returning = addReturning<T>(seedBuilder);
-    return { ...seedBuilder, returning };
+    return addReturning(seedBuilder);
   };
+  return { ...builder, returning };
 }
 
 const insert: InsertBuilder = (table) =>
@@ -173,7 +114,7 @@ const insert: InsertBuilder = (table) =>
         : { value: JSON.stringify(value), type: "string" })
       ),
     ] as Expr[][];
-    const statement: Statement = {
+    const statement: InsertStatement = {
       "type": "insert",
       "into": { "name": table },
       "insert": {
@@ -187,8 +128,7 @@ const insert: InsertBuilder = (table) =>
       toSql: () => toSql.statement(statement),
       statement,
     };
-    const returning = addReturning(seedBuilder) as Returning<typeof table>;
-    return { ...seedBuilder, returning };
+    return addReturning(seedBuilder);
   };
 
 const upsert: UpsertBuilder = (table) => {
@@ -217,14 +157,13 @@ const upsert: UpsertBuilder = (table) => {
   return (insertValues, updateValues) => {
     const { statement } = insert(table)(insertValues);
     const withOnConflict = onConflictMapper(updateValues || insertValues)
-      .statement(statement)!;
+      .statement(statement)! as InsertStatement;
     const seedBuilder = {
       table,
       toSql: () => toSql.statement(statement),
       statement: withOnConflict,
     };
-    const returning = addReturning(seedBuilder) as Returning<typeof table>;
-    return { ...seedBuilder, returning };
+    return addReturning(seedBuilder);
   };
 };
 
@@ -278,20 +217,35 @@ const update: UpdateBuilder = (table) =>
       statement,
       toSql: () => toSql.statement(statement),
     };
-    const returning = addReturning(seedBuilder) as Returning<typeof table>;
-    return { ...seedBuilder, returning };
+    return addReturning(seedBuilder);
   };
 
-// Association code draft, we will need a CTE query builder for this
-// const associateWithMxN: AssociateWith = (st1) =>
-//   (st2) => {
-//     st2.returning(["id"]);
-//     st1.returning(["id"]);
-//     insert("user_account")({
-//       user_id: withValue("user_id"),
-//       account_id: withValue("account_id"),
-//     });
-//     return (null as any);
-//   };
+function insertWith<T1 extends TableName>(context: StatementBuilder<T1>) {
+  return function <T2 extends TableName>(insert: StatementBuilder<T2>) {
+    const statement: WithStatement = insert.statement.type === "with"
+      ? {
+        ...insert.statement,
+        "bind": [...insert.statement.bind, {
+          "alias": { "name": context.table },
+          "statement": context.statement,
+        }],
+      }
+      : {
+        "type": "with",
+        "bind": [{
+          "alias": { "name": context.table },
+          "statement": context.statement,
+        }],
+        "in": insert.statement,
+      };
+    const seedBuilder = {
+      statement,
+      table: insert.table,
+      toSql: () => toSql.statement(statement),
+    };
 
-export { insert, now, update, upsert, uuid };
+    return addReturning<T2>(seedBuilder);
+  };
+}
+
+export { insert, insertWith, update, upsert };
