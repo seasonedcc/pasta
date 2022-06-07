@@ -15,12 +15,6 @@ type KeysOf<T extends TableName> = Tables[T]["keys"];
 type ColumnsOf<T extends TableName> = Tables[T]["columns"];
 type AssociationsOf<T extends TableName> = Tables[T]["associations"];
 
-type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
-
-type Returning<T extends TableName> = (
-  options: ReturningOptions<T>,
-) => StatementBuilder<T>;
-
 type SeedBuilder = {
   table: TableName;
   statement:
@@ -31,27 +25,10 @@ type SeedBuilder = {
   toSql: () => string;
 };
 
+type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
 type StatementBuilder<T extends TableName> = SeedBuilder & {
-  returning: Returning<T>;
+  returning: (options: ReturningOptions<T>) => StatementBuilder<T>;
 };
-
-type InsertBuilder = <T extends TableName>(
-  table: T,
-) => (values: ColumnsOf<T>) => StatementBuilder<T>;
-
-type UpsertBuilder = <T extends TableName>(
-  table: T,
-) => (
-  insertValues: ColumnsOf<T>,
-  updateValues?: ColumnsOf<T>,
-) => StatementBuilder<T>;
-
-type UpdateBuilder = <T extends TableName>(
-  table: T,
-) => (
-  keyValues: KeysOf<T>,
-  setValues: ColumnsOf<T>,
-) => StatementBuilder<T>;
 
 function addReturning<T extends TableName>(builder: SeedBuilder) {
   const returningMapper = (columnNames: Name[]) =>
@@ -101,8 +78,10 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
   return { ...builder, returning };
 }
 
-const insert: InsertBuilder = (table) =>
-  (valueMap) => {
+function insert<T extends TableName>(
+  table: T,
+): (valueMap: ColumnsOf<T>) => StatementBuilder<T> {
+  return function (valueMap) {
     const columns = Object.keys(valueMap).map((k) => ({ name: k }));
     const values = [
       Object.values(valueMap).map((
@@ -130,8 +109,12 @@ const insert: InsertBuilder = (table) =>
     };
     return addReturning(seedBuilder);
   };
+}
 
-const upsert: UpsertBuilder = (table) => {
+function upsert<T extends TableName>(table: T): (
+  insertValues: ColumnsOf<T>,
+  updateValues?: ColumnsOf<T>,
+) => StatementBuilder<T> {
   const onConflictMapper = (conflictValues: Record<string, unknown>) =>
     astMapper((_map) => ({
       insert: (t) => {
@@ -165,10 +148,13 @@ const upsert: UpsertBuilder = (table) => {
     };
     return addReturning(seedBuilder);
   };
-};
+}
 
-const update: UpdateBuilder = (table) =>
-  (keyValues, setValues) => {
+function update<T extends TableName>(table: T): (
+  keyValues: KeysOf<T>,
+  setValues: ColumnsOf<T>,
+) => StatementBuilder<T> {
+  return (keyValues, setValues) => {
     const binaryOp = (op: string) =>
       (left: Expr, right: Expr) =>
         (
@@ -219,6 +205,7 @@ const update: UpdateBuilder = (table) =>
     };
     return addReturning(seedBuilder);
   };
+}
 
 function insertWith<T1 extends TableName>(context: StatementBuilder<T1>) {
   return function <T2 extends TableName>(insert: StatementBuilder<T2>) {
