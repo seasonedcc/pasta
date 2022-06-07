@@ -113,3 +113,15 @@ Deno.test("insert with CTE without references", () => {
     `WITH "user" AS (INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))  RETURNING id ) INSERT INTO user_account  (account_id, user_id) VALUES (('0'), ('0'))  RETURNING created_at`,
   );
 });
+
+Deno.test("insert with associations", () => {
+  const insertUserStatement = insert("user")({
+    data: "test",
+    created_at: now(),
+  }, { account: { name: "some account" } });
+
+  assertEquals(
+    insertUserStatement.toSql(),
+    `WITH "user" AS (INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) VALUES ("user" .id, account .id)`,
+  );
+});

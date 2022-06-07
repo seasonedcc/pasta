@@ -9,11 +9,13 @@ import {
   UpdateStatement,
   WithStatement,
 } from "https://deno.land/x/pgsql_ast_parser@10.2.0/mod.ts";
-import { TableName, Tables } from "./mock-schema.ts";
-
-type KeysOf<T extends TableName> = Tables[T]["keys"];
-type ColumnsOf<T extends TableName> = Tables[T]["columns"];
-type AssociationsOf<T extends TableName> = Tables[T]["associations"];
+import {
+  associations,
+  AssociationsOf,
+  ColumnsOf,
+  KeysOf,
+  TableName,
+} from "./mock-schema.ts";
 
 type SeedBuilder = {
   table: TableName;
@@ -80,15 +82,20 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
 
 function insert<T extends TableName>(
   table: T,
-): (valueMap: ColumnsOf<T>) => StatementBuilder<T> {
-  return function (valueMap) {
+): (
+  valueMap: ColumnsOf<T>,
+  associationMap?: AssociationsOf<T>,
+) => StatementBuilder<T> {
+  return function (valueMap, associationMap) {
     const columns = Object.keys(valueMap).map((k) => ({ name: k }));
     const values = [
       Object.values(valueMap).map((
         value,
       ) => (typeof value === "string"
         ? { value, type: "string" }
-        : (typeof value === "object" && "returnType" in value)
+        : (typeof value === "object" && value !== null &&
+            ("returnType" in value ||
+              ("type" in value && value["type"] == "ref")))
         ? value
         : { value: JSON.stringify(value), type: "string" })
       ),
@@ -102,12 +109,66 @@ function insert<T extends TableName>(
       },
       columns,
     };
-    const seedBuilder = {
+    const builder = addReturning<T>({
       table,
       toSql: () => toSql.statement(statement),
       statement,
-    };
-    return addReturning(seedBuilder);
+    });
+    if (associationMap) {
+      for (
+        const [associated, associatedValues] of Object.entries(associationMap)
+      ) {
+        const association = associations[table]?.[associated];
+        if (association?.kind == "MxN") {
+          const { fks, associativeTable } = association;
+          const associativeValues = Object.keys(fks).reduce(
+            (previousValue, currentValue) => {
+              previousValue[currentValue] = {
+                "type": "ref",
+                "table": {
+                  "name": fks[currentValue][0],
+                },
+                "name": fks[currentValue][1],
+              };
+              return previousValue;
+            },
+            {} as Record<string, unknown>,
+          );
+          const returningFksAssociation = Object.values(fks).filter((
+            [fkTable],
+          ) => (fkTable == association.table))
+            .map(([_, fkColumn]) => (fkColumn));
+
+          const returningFksBuilder = Object.values(fks).filter((
+            [fkTable],
+          ) => (fkTable == builder.table))
+            .map(([_, fkColumn]) => (fkColumn));
+
+          const withStatement = insertWith(
+            insert(association.table)(associatedValues).returning(
+              returningFksAssociation as ReturningOptions<
+                typeof association.table
+              >,
+            ),
+          )(
+            insertWith(
+              builder.returning(
+                returningFksBuilder as ReturningOptions<typeof builder.table>,
+              ),
+            )(
+              // deno-lint-ignore no-explicit-any
+              insert(associativeTable)(associativeValues as any),
+            ),
+          );
+          return addReturning<T>({
+            table,
+            toSql: () => toSql.statement(withStatement.statement),
+            statement: withStatement.statement,
+          });
+        }
+      }
+    }
+    return builder;
   };
 }
 
