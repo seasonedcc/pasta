@@ -16,3 +16,6 @@ jobs:
       - name: Run tests
         run: |
           deno test
+      - name: Generate npm package
+        run: |
+          deno run -A scripts/build-npm.ts 0.0.1
