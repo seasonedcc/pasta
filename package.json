@@ -5,10 +5,13 @@
   "main": "index.min.js",
   "scripts": {
     "test": "deno test src/index.test.ts",
-    "build": "deno bundle src/index.ts index.min.js",
+    "build": "deno bundle src/index.ts dist/index.min.js",
     "prepublishOnly": "npm run build"
   },
   "author": "",
   "keywords": [],
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "postgres": "^3.2.4"
+  }
 }
