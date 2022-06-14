@@ -297,3 +297,4 @@ function insertWith<T1 extends TableName>(context: StatementBuilder<T1>) {
 }
 
 export { insert, insertWith, update, upsert };
+export type { SeedBuilder, StatementBuilder };

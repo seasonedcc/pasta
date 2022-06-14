@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.min.js",
   "scripts": {
-    "test": "deno test src/*.test.ts",
+    "test": "deno test --allow-env --allow-net --unstable src/*.test.ts",
     "build": "deno bundle src/index.ts dist/index.min.js",
     "prepublishOnly": "npm run build",
     "npm-build": "deno run -A scripts/build-npm.ts 0.0.1"
