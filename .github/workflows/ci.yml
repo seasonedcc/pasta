@@ -11,7 +11,7 @@ jobs:
       postgres:
         image: postgres
         env:
-          POSTGRES_USER: postgres
+          POSTGRES_USER: runner
           POSTGRES_PASSWORD: "postgres"
           POSTGRES_DB: pasta_test
           POSTGRES_HOST_AUTH_METHOD: "trust"
