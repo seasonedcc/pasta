@@ -37,6 +37,7 @@ type Tables = {
     columns: {
       id?: number;
       name: string;
+      created_at?: string | TimestampFunctionCall;
     };
     associations: { user_account: { user_id: number } } | {
       user: { data: string };

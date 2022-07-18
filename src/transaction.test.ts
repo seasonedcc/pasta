@@ -10,8 +10,24 @@ function withTestDatabase(
     const uri = "postgres://localhost/pasta_test";
     Deno.env.set("DATABASE_URL", uri);
     const sql = postgres(uri);
-    await sql`DROP TABLE IF EXISTS "user"`;
-    await sql`CREATE TABLE "user" (data text PRIMARY KEY)`;
+    await sql`DROP TABLE IF EXISTS "user", account, user_account CASCADE`;
+    await sql`CREATE TABLE "user" (
+        id serial PRIMARY KEY,
+        data text NOT NULL,
+        created_at timestamp NOT NULL DEFAULT now(),
+        tags jsonb NOT NULL DEFAULT '[]'
+      )`;
+    await sql`CREATE TABLE "account" (
+      id serial PRIMARY KEY,
+      name text NOT NULL,
+      created_at timestamp NOT NULL DEFAULT now()
+    )`;
+    await sql`CREATE TABLE "user_account" (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES "user",
+      account_id integer NOT NULL REFERENCES account,
+      created_at timestamp NOT NULL DEFAULT now()
+    )`;
 
     return testCase(sql);
   };
