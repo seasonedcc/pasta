@@ -45,9 +45,6 @@ type Tables = {
 };
 
 type TableName = keyof Tables;
-type KeysOf<T extends TableName> = Tables[T]["keys"];
-type ColumnsOf<T extends TableName> = Tables[T]["columns"];
-type AssociationsOf<T extends TableName> = Tables[T]["associations"];
 
 type Association =
   | { kind: "1xN"; table: TableName; fks: Record<string, string> }
@@ -89,5 +86,5 @@ const associations: Associations = {
   user_account: null,
 };
 
-export type { AssociationsOf, ColumnsOf, KeysOf, TableName, Tables };
+export type { TableName, Tables };
 export { associations };

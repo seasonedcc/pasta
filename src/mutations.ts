@@ -15,7 +15,7 @@ import {
   ColumnsOf,
   KeysOf,
   TableName,
-} from "./mock-schema.ts";
+} from "./schema.ts";
 
 type SeedBuilder = {
   table: TableName;
