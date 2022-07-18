@@ -89,12 +89,5 @@ const associations: Associations = {
   user_account: null,
 };
 
-// const associations: [TableName, TableName, Record<string, string>][] = [
-//   ["user", "user_account", { id: "user_id" }],
-//   ["user_account", "account", { account_id: "id" }],
-//   ["user_account", "user", { user_id: "id" }],
-//   ["account", "user_account", { id: "account_id" }],
-// ];
-
 export type { AssociationsOf, ColumnsOf, KeysOf, TableName, Tables };
 export { associations };
