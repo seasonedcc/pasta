@@ -1,2 +1,2 @@
 export * from "./mutations.ts";
-export * from "./transaction.ts";
+export * as db from "./transaction.ts";
