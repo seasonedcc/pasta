@@ -10,7 +10,6 @@ Deno.test("insert", async () => {
   await sql`DROP TABLE IF EXISTS "user"`;
   await sql`CREATE TABLE "user" (data text PRIMARY KEY)`;
 
-  await sql`TRUNCATE TABLE "user"`;
   const builder = insert("user")({ data: "test" });
 
   await transaction(builder);
