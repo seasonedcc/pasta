@@ -3,21 +3,32 @@ import { insert } from "./mutations.ts";
 import { transaction } from "./transaction.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
-Deno.test("insert", async () => {
-  const uri = "postgres://localhost/pasta_test";
-  Deno.env.set("DATABASE_URL", uri);
-  const sql = postgres(uri);
-  await sql`DROP TABLE IF EXISTS "user"`;
-  await sql`CREATE TABLE "user" (data text PRIMARY KEY)`;
+function withTestDatabase(
+  testCase: (sql: postgres.Sql<{}>) => Promise<void>,
+): () => Promise<void> {
+  return async () => {
+    const uri = "postgres://localhost/pasta_test";
+    Deno.env.set("DATABASE_URL", uri);
+    const sql = postgres(uri);
+    await sql`DROP TABLE IF EXISTS "user"`;
+    await sql`CREATE TABLE "user" (data text PRIMARY KEY)`;
 
-  const builder = insert("user")({ data: "test" });
+    return testCase(sql);
+  };
+}
 
-  await transaction(builder);
+Deno.test(
+  "insert",
+  withTestDatabase(async (sql) => {
+    const builder = insert("user")({ data: "test" });
 
-  const [{ count }] = await sql
-    `SELECT count(*) FROM "user" WHERE data = 'test'`;
+    await transaction(builder);
 
-  assertEquals(count, "1");
+    const [{ count }] = await sql
+      `SELECT count(*) FROM "user" WHERE data = 'test'`;
 
-  await sql.end({ timeout: 5 });
-});
+    assertEquals(count, "1");
+
+    await sql.end({ timeout: 5 });
+  }),
+);
