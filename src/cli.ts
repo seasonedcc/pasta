@@ -6,4 +6,7 @@ const { connectionUrl } = parse(Deno.args);
 console.info(`Connecting to ${connectionUrl} ...`);
 const sql = postgres(connectionUrl);
 
+const version = await sql`select version()`;
+console.info(`Connected to${version}`);
+
 console.info("Done ✅");
