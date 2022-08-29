@@ -27,12 +27,22 @@ WITH relations AS (
 
 columns AS (
   SELECT
-    a.attname,
-    pg_catalog.format_type(a.atttypid, a.atttypmod),
+    a.attname as name,
+    CASE a.atttypid
+      WHEN 1082 THEN 'Date'
+      WHEN 1114 THEN 'Date'
+      WHEN 3802 THEN 'JSONValue'
+      WHEN 114 THEN 'JSONValue'
+      WHEN 16 THEN 'boolean'
+      WHEN 20 THEN 'bigint'
+      WHEN 701 THEN 'number'
+      WHEN 23 THEN 'number'
+      ELSE 'string'
+    END as column_ts_type,
     (SELECT pg_catalog.pg_get_expr(d.adbin, d.adrelid, true)
       FROM pg_catalog.pg_attrdef d
       WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef),
-    a.attnotnull,
+    a.attnotnull as notnull,
     (SELECT c.collname FROM pg_catalog.pg_collation c, pg_catalog.pg_type t
       WHERE c.oid = a.attcollation AND t.oid = a.atttypid AND a.attcollation <> t.typcollation) AS attcollation,
     a.attidentity,
@@ -42,11 +52,47 @@ columns AS (
   WHERE a.attnum > 0 AND NOT a.attisdropped
 )
 
-SELECT r.schema, r.name, json_agg(row_to_json(c.*))
+SELECT r.schema, r.name, json_agg(row_to_json(c.*)) as columns
 FROM relations r JOIN columns c ON c.attrelid = r.oid
 GROUP BY r.schema, r.name;`;
 
-  console.log(JSON.stringify(tables));
+  const tableTypes = tables.map((el) =>
+    `${el.name}: {
+    columns: {
+      ${
+      el.columns.map((
+        c: {
+          name: string;
+          column_ts_type: string;
+          notnull: boolean;
+        },
+      ) => `${c.name}${c.notnull ? "" : "?"}: ${c.column_ts_type}`)
+        .join(";\n      ")
+    }
+    }
+  }`
+  ).join(
+    ",\n  ",
+  );
+
+  console.log(
+    `import { JSONValue, TimestampFunctionCall } from "./pg-catalog.ts";
+type Tables = {
+  ${tableTypes}
+}
+type TableName = keyof Tables;
+type Association =
+| { kind: "1xN"; table: TableName; fks: Record<string, string> }
+| {
+  kind: "MxN";
+  table: TableName;
+  associativeTable: TableName;
+  fks: Record<string, [string, string]>;
+};
+type Associations = Record<TableName, null | Record<string, Association>>;
+export type { TableName, Tables };
+`,
+  );
 
   await sql.end();
   console.info("Done ✅");
