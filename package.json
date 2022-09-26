@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.min.js",
   "scripts": {
-    "test": "deno test --allow-env --allow-net --unstable src/**/*.test.ts",
+    "test": "deno test --allow-env --allow-net --allow-read --unstable src/**/*.test.ts",
     "build": "deno bundle src/index.ts dist/index.min.js",
     "build-cli": "deno compile --allow-env --allow-net --unstable --output=dist/pasta src/cli.ts",
     "cli": "deno run --allow-env --allow-net --unstable src/cli.ts",

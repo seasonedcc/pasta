@@ -16,10 +16,13 @@ WITH relations AS (
     AND n.nspname <> 'information_schema'
     AND n.nspname !~ '^pg_toast'
     AND pg_catalog.pg_table_is_visible(c.oid)
+  ORDER BY
+    n.nspname, c.relname
 ),
 
 columns AS (
   SELECT
+    a.attnum,
     a.attname as name,
     CASE a.atttypid
       -- WHEN 1082 THEN 'Date'
@@ -45,7 +48,7 @@ columns AS (
   WHERE a.attnum > 0 AND NOT a.attisdropped
 )
 
-SELECT r.schema, r.name, json_agg(row_to_json(c.*)) as columns
+SELECT r.schema, r.name, json_agg(row_to_json(c.*) ORDER BY c.attnum) as columns
 FROM relations r JOIN columns c ON c.attrelid = r.oid
 GROUP BY r.schema, r.name;`;
 
