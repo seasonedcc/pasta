@@ -26,7 +26,7 @@ function withTestDatabase(
       created_at timestamp NOT NULL DEFAULT now()
     )`;
 
-    return testCase(sql);
+    return testCase(sql).then(() => sql.end());
   };
 }
 
