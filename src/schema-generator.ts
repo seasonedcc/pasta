@@ -3,8 +3,8 @@ import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 async function generateSchema(connectionUrl: string) {
   const sql = postgres(`${connectionUrl}`);
 
-  const [{ current_database, version }] = await sql
-    `select current_database(), version()`;
+  const [{ current_database, version }] =
+    await sql`select current_database(), version()`;
 
   console.info(`Connected to ${current_database}@${version}`);
 
@@ -29,8 +29,8 @@ columns AS (
   SELECT
     a.attname as name,
     CASE a.atttypid
-      WHEN 1082 THEN 'Date'
-      WHEN 1114 THEN 'Date'
+      -- WHEN 1082 THEN 'Date'
+      -- WHEN 1114 THEN 'Date'
       WHEN 3802 THEN 'JSONValue'
       WHEN 114 THEN 'JSONValue'
       WHEN 16 THEN 'boolean'

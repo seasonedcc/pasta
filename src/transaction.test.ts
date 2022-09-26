@@ -10,8 +10,7 @@ function withTestDatabase(
     const uri = "postgres://localhost/pasta_test";
     Deno.env.set("DATABASE_URL", uri);
     const sql = postgres(uri);
-    await sql
-      `DROP TABLE IF EXISTS public."user", public.account, public.user_account CASCADE`;
+    await sql`DROP TABLE IF EXISTS public."user", public.account, public.user_account CASCADE`;
     await sql`CREATE TABLE public."user" (
         id serial PRIMARY KEY,
         data text NOT NULL,
@@ -41,8 +40,8 @@ Deno.test(
 
     await transaction(builder);
 
-    const [{ count }] = await sql
-      `SELECT count(*) FROM "user" WHERE data = 'test'`;
+    const [{ count }] =
+      await sql`SELECT count(*) FROM "user" WHERE data = 'test'`;
 
     assertEquals(count, "1");
 
