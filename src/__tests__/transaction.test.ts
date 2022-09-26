@@ -1,6 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
-import { insert } from "./mutations.ts";
-import { transaction } from "./transaction.ts";
+import { insert } from "../mutations.ts";
+import { transaction } from "../transaction.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
 function withTestDatabase(
