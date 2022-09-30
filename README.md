@@ -40,7 +40,7 @@ Now let's see how we would insert a user with their corresponding account.
 await db.transaction(
   user.insert(
     { email: "user2@someaccout.tld", created_at: now() },
-    { account: { name: "some product name" }
+    { account: [{ name: "some product name" }] }
   )
 )
 ```
@@ -54,7 +54,7 @@ Let's say you want to use this identifier, this is how you obtain it in the same
 const { id } = await db.transaction(
   user.insert(
     { email: "user2@someaccout.tld", created_at: now() },
-    { account: { name: "some product name" }
+    { account: [{ name: "some product name" }] }
   ).returning(["id"])
 )
 ```
