@@ -81,7 +81,7 @@ const associations: Associations = {
       kind: "MxN",
       associativeTable: "user_account",
       table: "user",
-      fks: { user_id: ["user", "id"], account_id: ["account", "id"] },
+      fks: { "user_id": ["user", "id"], "account_id": ["account", "id"] },
     },
   },
   user_account: null,
