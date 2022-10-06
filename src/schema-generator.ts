@@ -38,10 +38,7 @@ columns AS (
       WHEN 23 THEN 'number'
       ELSE 'string'
     END as column_ts_type,
-    (SELECT pg_catalog.pg_get_expr(d.adbin, d.adrelid, true)
-      FROM pg_catalog.pg_attrdef d
-      WHERE d.adrelid = a.attrelid AND d.adnum = a.attnum AND a.atthasdef),
-    a.attnotnull as notnull,
+    a.atthasdef OR NOT a.attnotnull as optional,
     (SELECT c.collname FROM pg_catalog.pg_collation c, pg_catalog.pg_type t
       WHERE c.oid = a.attcollation AND t.oid = a.atttypid AND a.attcollation <> t.typcollation) AS attcollation,
     a.attidentity,
@@ -125,9 +122,9 @@ ORDER BY r.schema, r.name`;
         c: {
           name: string;
           column_ts_type: string;
-          notnull: boolean;
+          optional: boolean;
         },
-      ) => `${c.name}${c.notnull ? "" : "?"}: ${c.column_ts_type}`)
+      ) => `${c.name}${c.optional ? "?" : ""}: ${c.column_ts_type}`)
         .join(";\n      ")
     }
     }

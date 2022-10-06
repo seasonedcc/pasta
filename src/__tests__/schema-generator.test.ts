@@ -7,25 +7,25 @@ const expectedSchema =
 type Tables = {
   account: {
     columns: {
-      id: number;
+      id?: number;
       name: string;
-      created_at: string
+      created_at?: string
     }
   },
   user: {
     columns: {
-      id: number;
+      id?: number;
       data: string;
-      created_at: string;
-      tags: JSONValue
+      created_at?: string;
+      tags?: JSONValue
     }
   },
   user_account: {
     columns: {
-      id: number;
+      id?: number;
       user_id: number;
       account_id: number;
-      created_at: string
+      created_at?: string
     }
   }
 }
