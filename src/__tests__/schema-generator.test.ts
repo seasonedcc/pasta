@@ -9,14 +9,14 @@ type Tables = {
     columns: {
       id?: number;
       name: string;
-      created_at?: string
+      created_at?: string | TimestampFunctionCall
     }
   },
   user: {
     columns: {
       id?: number;
       data: string;
-      created_at?: string;
+      created_at?: string | TimestampFunctionCall;
       tags?: JSONValue
     }
   },
@@ -25,7 +25,7 @@ type Tables = {
       id?: number;
       user_id: number;
       account_id: number;
-      created_at?: string
+      created_at?: string | TimestampFunctionCall
     }
   }
 }

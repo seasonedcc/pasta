@@ -28,8 +28,8 @@ columns AS (
     a.attnum,
     a.attname as name,
     CASE a.atttypid
-      -- WHEN 1082 THEN 'Date'
-      -- WHEN 1114 THEN 'Date'
+      WHEN 1082 THEN 'string | TimestampFunctionCall'
+      WHEN 1114 THEN 'string | TimestampFunctionCall'
       WHEN 3802 THEN 'JSONValue'
       WHEN 114 THEN 'JSONValue'
       WHEN 16 THEN 'boolean'
