@@ -6,6 +6,9 @@ const expectedSchema =
   `import { JSONValue, TimestampFunctionCall } from "./pg-catalog.ts";
 type Tables = {
   account: {
+    keys: {
+      id: number;
+    };
     columns: {
       id?: number;
       name: string;
@@ -13,6 +16,9 @@ type Tables = {
     }
   },
   user: {
+    keys: {
+      id: number;
+    };
     columns: {
       id?: number;
       data: string;
@@ -21,6 +27,12 @@ type Tables = {
     }
   },
   user_account: {
+    keys: {
+      id: number;
+    } | {
+      user_id: number;
+      account_id: number;
+    };
     columns: {
       id?: number;
       user_id: number;

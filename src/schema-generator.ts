@@ -43,7 +43,8 @@ columns AS (
       WHERE c.oid = a.attcollation AND t.oid = a.atttypid AND a.attcollation <> t.typcollation) AS attcollation,
     a.attidentity,
     a.attgenerated,
-    a.attrelid
+    a.attrelid,
+    a.attnotnull
   FROM pg_catalog.pg_attribute a
   WHERE a.attnum > 0 AND NOT a.attisdropped
 ),
@@ -100,22 +101,64 @@ indirect_associations AS (
     d1.referenced_relation IN (
       SELECT d3.referenced_relation FROM direct_associations d3 GROUP BY d3.referenced_relation HAVING count(*) > 1
     )
+),
+
+keys AS (
+  SELECT
+    c.oid,
+    co.name,
+    co.column_ts_type,
+    i.indisprimary as is_primary,
+    c2.relname as index_name
+  FROM
+    pg_catalog.pg_index i
+    JOIN pg_catalog.pg_class c ON c.oid = i.indrelid
+    JOIN pg_catalog.pg_class c2 ON c2.oid = i.indexrelid
+    LEFT JOIN columns co ON co.attrelid = c2.oid
+  WHERE
+    i.indisunique
+    AND true = ALL(SELECT co2.attnotnull FROM columns co2 WHERE co2.attrelid = c.oid)
 )
 
 SELECT
   r.schema,
   r.name,
-  json_agg(row_to_json(c.*) ORDER BY c.attnum) as columns,
-  (SELECT json_agg(row_to_json(a.*) ORDER BY a.table) FROM direct_associations a WHERE a.oid = r.oid) as direct_associations,
-  (SELECT json_agg(row_to_json(i.*) ORDER BY i.table) FROM indirect_associations i WHERE i.oid = r.oid) as indirect_associations
+  jsonb_agg(row_to_json(c.*) ORDER BY c.attnum) as columns,
+  (SELECT jsonb_agg(row_to_json(a.*) ORDER BY a.table) FROM direct_associations a WHERE a.oid = r.oid) as direct_associations,
+  (SELECT jsonb_agg(row_to_json(i.*) ORDER BY i.table) FROM indirect_associations i WHERE i.oid = r.oid) as indirect_associations,
+  (SELECT jsonb_agg(row_to_json(k.*) ORDER BY k.is_primary DESC, k.index_name) FROM keys k WHERE k.oid = r.oid) as keys
 FROM
   relations r
   JOIN columns c ON c.attrelid = r.oid
 GROUP BY r.oid, r.schema, r.name
 ORDER BY r.schema, r.name`;
 
-  const tableTypes = tables.map((el) =>
-    `${el.name}: {
+  const tableTypes = tables.map((el) => {
+    const keySets = el.keys.reduce(
+      (
+        prev: Record<string, { index_name: string }[]>,
+        curr: { index_name: string },
+      ) => {
+        if (Object.keys(prev).includes(curr.index_name)) {
+          prev[curr.index_name].push(curr);
+        } else {
+          prev[curr.index_name] = [curr];
+        }
+        return prev;
+      },
+      {},
+    );
+    const keys = Object.values(keySets).map(
+      (keys) => {
+        return (keys as { name: string; column_ts_type: string }[]).map((
+          k: { name: string; column_ts_type: string },
+        ) => `${k.name}: ${k.column_ts_type};`).join("\n      ");
+      },
+    );
+    return `${el.name}: {
+    keys: {
+      ${keys.join("\n    } | {\n      ")}
+    };
     columns: {
       ${
       el.columns.map((
@@ -128,8 +171,8 @@ ORDER BY r.schema, r.name`;
         .join(";\n      ")
     }
     }
-  }`
-  ).join(
+  }`;
+  }).join(
     ",\n  ",
   );
 

@@ -25,6 +25,8 @@ function withTestDatabase(
       account_id integer NOT NULL REFERENCES public.account,
       created_at timestamp NOT NULL DEFAULT now()
     )`;
+    await sql`CREATE UNIQUE INDEX user_account_key
+      ON public.user_account (user_id, account_id)`;
 
     return testCase(sql).then(() => sql.end());
   };
