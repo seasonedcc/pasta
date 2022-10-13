@@ -13,7 +13,10 @@ type Tables = {
       id?: number;
       name: string;
       created_at?: string | TimestampFunctionCall
-    }
+    };
+    associations:
+      | { user: { data: string } }
+      | { user_account: { user_id: number } };
   },
   user: {
     keys: {
@@ -24,7 +27,10 @@ type Tables = {
       data: string;
       created_at?: string | TimestampFunctionCall;
       tags?: JSONValue
-    }
+    };
+    associations:
+      | { account: { name: string } }
+      | { user_account: { account_id: number } };
   },
   user_account: {
     keys: {
@@ -38,7 +44,10 @@ type Tables = {
       user_id: number;
       account_id: number;
       created_at?: string | TimestampFunctionCall
-    }
+    };
+    associations:
+      | { account: { name: string } }
+      | { user: { data: string } };
   }
 }
 type TableName = keyof Tables;

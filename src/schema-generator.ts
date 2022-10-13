@@ -49,14 +49,14 @@ columns AS (
   WHERE a.attnum > 0 AND NOT a.attisdropped
 ),
 
-direct_associations AS (
+fks AS (
   SELECT
     rr.oid,
     main.oid as table_oid,
     rr.relname as referenced_relation,
-    '1xN' as kind,
     main.relname as table,
-    jsonb_agg(json_build_array(fk.attname, pk.attname) ORDER BY fk.attname) as fks
+    fk.attname as fk,
+    pk.attname as pk
   FROM
     pg_catalog.pg_constraint c
     JOIN pg_class rr on c.confrelid = rr.oid
@@ -65,15 +65,14 @@ direct_associations AS (
     JOIN pg_catalog.pg_attribute fk on fk.attrelid = c.conrelid and fk.attnum = any(c.conkey)
   WHERE
     c.contype = 'f' AND c.conparentid = 0
-  GROUP BY main.oid, rr.oid, rr.relname, main.relname
   UNION ALL
   SELECT
     rr.oid,
     main.oid as table_oid,
     rr.relname as referenced_relation,
-    '1xN' as kind,
     main.relname as table,
-    jsonb_agg(json_build_array(fk.attname, pk.attname) ORDER BY fk.attname) as fks
+    fk.attname as fk,
+    pk.attname as pk
   FROM
     pg_catalog.pg_constraint c
     JOIN pg_class rr on c.conrelid = rr.oid
@@ -82,13 +81,26 @@ direct_associations AS (
     JOIN pg_catalog.pg_attribute fk on fk.attrelid = c.confrelid and fk.attnum = any(c.confkey)
   WHERE
     c.contype = 'f' AND c.conparentid = 0
-  GROUP BY main.oid, rr.oid, rr.relname, main.relname
+),
+
+direct_associations AS (
+  SELECT
+    fks.oid,
+    fks.table_oid,
+    fks.referenced_relation,
+    '1xN' as kind,
+    fks.table,
+    jsonb_agg(json_build_array(fks.fk, fks.pk) ORDER BY fks.fk) as fks
+  FROM
+    fks
+  GROUP BY fks.oid, fks.table_oid, fks.referenced_relation, fks.table
 ),
 
 indirect_associations AS (
   SELECT
     d1.table_oid as oid,
     d1.table as referenced_relation,
+    d2.table_oid as table_oid,
     d2.table as table,
     'MxN' as kind,
     d1.referenced_relation as associative_table,
@@ -118,6 +130,38 @@ keys AS (
   WHERE
     i.indisunique
     AND true = ALL(SELECT co2.attnotnull FROM columns co2 WHERE co2.attrelid = c.oid)
+),
+
+associations AS (
+  SELECT
+    da.oid,
+    da.table_oid,
+    da.table
+  FROM direct_associations da
+  GROUP BY da.oid, da.table_oid, da.table
+  UNION
+  SELECT
+    ia.oid,
+    ia.table_oid,
+    ia.table
+  FROM indirect_associations ia
+  GROUP BY ia.oid, ia.table_oid, ia.table
+),
+
+association_columns AS (
+  SELECT DISTINCT
+    a.oid,
+    a.table_oid,
+    a.table,
+    c.attnum,
+    c.name,
+    c.column_ts_type
+  FROM
+    associations a
+    JOIN columns c ON c.attrelid = a.table_oid
+  WHERE
+    NOT c.optional
+    AND NOT EXISTS (SELECT FROM fks k WHERE k.oid = a.oid AND k.table_oid = a.table_oid AND k.fk = c.name)
 )
 
 SELECT
@@ -126,7 +170,8 @@ SELECT
   jsonb_agg(row_to_json(c.*) ORDER BY c.attnum) as columns,
   (SELECT jsonb_agg(row_to_json(a.*) ORDER BY a.table) FROM direct_associations a WHERE a.oid = r.oid) as direct_associations,
   (SELECT jsonb_agg(row_to_json(i.*) ORDER BY i.table) FROM indirect_associations i WHERE i.oid = r.oid) as indirect_associations,
-  (SELECT jsonb_agg(row_to_json(k.*) ORDER BY k.is_primary DESC, k.index_name) FROM keys k WHERE k.oid = r.oid) as keys
+  (SELECT jsonb_agg(row_to_json(k.*) ORDER BY k.is_primary DESC, k.index_name) FROM keys k WHERE k.oid = r.oid) as keys,
+  (SELECT jsonb_agg(row_to_json(ac.*) ORDER BY ac.table, ac.attnum) FROM association_columns ac WHERE ac.oid = r.oid) as association_columns
 FROM
   relations r
   JOIN columns c ON c.attrelid = r.oid
@@ -155,6 +200,34 @@ ORDER BY r.schema, r.name`;
         ) => `${k.name}: ${k.column_ts_type};`).join("\n      ");
       },
     );
+
+    const associatonColumnsSets = el.association_columns.reduce(
+      (
+        prev: Record<string, { table: string }[]>,
+        curr: { table: string },
+      ) => {
+        if (Object.keys(prev).includes(curr.table)) {
+          prev[curr.table].push(curr);
+        } else {
+          prev[curr.table] = [curr];
+        }
+        return prev;
+      },
+      {},
+    );
+
+    const associationColumns = Object.keys(associatonColumnsSets).map((
+      k: string,
+    ) => {
+      const columns = associatonColumnsSets[k] as {
+        name: string;
+        column_ts_type: string;
+      }[];
+      const columnsType = columns.map((c) => `${c.name}: ${c.column_ts_type}`)
+        .join("; ");
+      return `{ ${k}: { ${columnsType} } }`;
+    }).join("\n      | ");
+
     return `${el.name}: {
     keys: {
       ${keys.join("\n    } | {\n      ")}
@@ -170,7 +243,9 @@ ORDER BY r.schema, r.name`;
       ) => `${c.name}${c.optional ? "?" : ""}: ${c.column_ts_type}`)
         .join(";\n      ")
     }
-    }
+    };
+    associations:
+      | ${associationColumns};
   }`;
   }).join(
     ",\n  ",
