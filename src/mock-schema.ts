@@ -11,9 +11,9 @@ type Tables = {
       created_at?: string | TimestampFunctionCall;
       tags?: JSONValue;
     };
-    associations: { user_account: { account_id: number } } | {
-      account: { name: string };
-    };
+    associations:
+      | { user_account: { account_id: number } }
+      | { account: { name: string } };
   };
   user_account: {
     keys: {
@@ -28,7 +28,9 @@ type Tables = {
       account_id: number;
       created_at?: string | TimestampFunctionCall;
     };
-    associations: { user: { data: string } } | { account: { name: string } };
+    associations:
+      | { user: { data: string } }
+      | { account: { name: string } };
   };
   account: {
     keys: {
@@ -39,9 +41,9 @@ type Tables = {
       name: string;
       created_at?: string | TimestampFunctionCall;
     };
-    associations: { user_account: { user_id: number } } | {
-      user: { data: string };
-    };
+    associations:
+      | { user_account: { user_id: number } }
+      | { user: { data: string } };
   };
 };
 
