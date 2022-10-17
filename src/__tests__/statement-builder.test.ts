@@ -1,7 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
 import { now } from "../pg-catalog.ts";
 
-import { insert, insertWith, update, upsert } from "../mutations.ts";
+import { insert, insertWith, update, upsert } from "../statement-builder.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ data: "test" }).toSql();
