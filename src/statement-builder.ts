@@ -216,16 +216,15 @@ function update<T extends TableName>(table: T): (
   setValues: ColumnsOf<T>,
 ) => StatementBuilder<T> {
   return (keyValues, setValues) => {
-    const binaryOp = (op: string) =>
-      (left: Expr, right: Expr) =>
-        (
-          {
-            "type": "binary",
-            left,
-            right,
-            op,
-          }
-        ) as Expr;
+    const binaryOp = (op: string) => (left: Expr, right: Expr) =>
+      (
+        {
+          "type": "binary",
+          left,
+          right,
+          op,
+        }
+      ) as Expr;
     const eq = (name: string, value: string) =>
       binaryOp("=")({ "type": "ref", name }, {
         "type": "string",
@@ -296,5 +295,22 @@ function insertWith<T1 extends TableName>(context: StatementBuilder<T1>) {
   };
 }
 
-export { insert, insertWith, update, upsert };
+function select<T extends TableName>(table: T): () => StatementBuilder<T> {
+  return function () {
+    const statement: Statement = {
+      "columns": [],
+      "from": [{ "type": "table", "name": { "name": "user" } }],
+      "type": "select",
+    };
+    const seedBuilder = {
+      statement,
+      table: table,
+      toSql: () => toSql.statement(statement),
+    };
+
+    return addReturning<T>(seedBuilder);
+  };
+}
+
+export { insert, insertWith, select, update, upsert };
 export type { SeedBuilder, StatementBuilder };

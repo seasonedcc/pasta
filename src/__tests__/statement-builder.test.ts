@@ -1,7 +1,13 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
 import { now } from "../pg-catalog.ts";
 
-import { insert, insertWith, update, upsert } from "../statement-builder.ts";
+import {
+  insert,
+  insertWith,
+  select,
+  update,
+  upsert,
+} from "../statement-builder.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ data: "test" }).toSql();
@@ -123,5 +129,14 @@ Deno.test("insert with associations", () => {
   assertEquals(
     insertUserStatement.toSql(),
     `WITH "user" AS (INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) VALUES ("user" .id, account .id)`,
+  );
+});
+
+Deno.test("select from user", () => {
+  const selectNothing = select("user")();
+
+  assertEquals(
+    selectNothing.toSql(),
+    `SELECT  FROM "user"`,
   );
 });
