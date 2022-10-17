@@ -8,7 +8,7 @@ import {
   toSql,
   UpdateStatement,
   WithStatement,
-} from "https://deno.land/x/pgsql_ast_parser@10.3.1/mod.ts";
+} from "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts";
 import {
   associations,
   AssociationsOf,
