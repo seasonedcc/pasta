@@ -23,7 +23,7 @@ All examples will use the schema defined as part of the tests for the library wh
 Let's start with a simple mutation, inserting a new user in our database:
 
 ```ts
-import { schema: { user }, db } as schema from 'src/database'
+import { tables: { user }, db } from 'src/database'
 
 await db.transaction(
   user.insert({ email: "user2@someaccout.tld" })
@@ -39,7 +39,8 @@ Now let's see how we would insert a user with their corresponding account.
 ```ts
 await db.transaction(
   user.insert(
-    { email: "user2@someaccout.tld", created_at: now() },
+    { email: "user2@someaccout.tld", created_at: now() }
+  ).associate(
     { account: [{ name: "some product name" }] }
   )
 )
@@ -53,7 +54,8 @@ Let's say you want to use this identifier, this is how you obtain it in the same
 ```ts
 const { id } = await db.transaction(
   user.insert(
-    { email: "user2@someaccout.tld", created_at: now() },
+    { email: "user2@someaccout.tld", created_at: now() }
+  ).associate(
     { account: [{ name: "some product name" }] }
   ).returning(["id"])
 )
