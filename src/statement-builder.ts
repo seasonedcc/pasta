@@ -295,6 +295,37 @@ function insertWith<T1 extends TableName>(context: StatementBuilder<T1>) {
   };
 }
 
+function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
+  const returningMapper = (columnNames: Name[]) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        columns: columnNames.map((c) => ({
+          expr: { type: "ref", name: c.name },
+        })),
+      }),
+    }));
+
+  const returning = function (
+    options: ReturningOptions<T>,
+  ): StatementBuilder<T> {
+    const returningColumns = options.map((c) => ({
+      name: c,
+    } as Name));
+    const statementWithReturning = returningMapper(returningColumns)
+      .statement(
+        builder.statement,
+      )! as SelectStatement;
+    const seedBuilder = {
+      table: builder.table,
+      statement: statementWithReturning,
+      toSql: () => toSql.statement(statementWithReturning),
+    };
+    return addSelectReturning(seedBuilder);
+  };
+  return { ...builder, returning };
+}
+
 function select<T extends TableName>(table: T): () => StatementBuilder<T> {
   return function () {
     const statement: Statement = {
@@ -308,7 +339,7 @@ function select<T extends TableName>(table: T): () => StatementBuilder<T> {
       toSql: () => toSql.statement(statement),
     };
 
-    return addReturning<T>(seedBuilder);
+    return addSelectReturning<T>(seedBuilder);
   };
 }
 

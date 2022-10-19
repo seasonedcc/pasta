@@ -140,3 +140,12 @@ Deno.test("select from user", () => {
     `SELECT  FROM "user"`,
   );
 });
+
+Deno.test("select id from user", () => {
+  const selectId = select("user")().returning(["id"]);
+
+  assertEquals(
+    selectId.toSql(),
+    `SELECT id  FROM "user"`,
+  );
+});
