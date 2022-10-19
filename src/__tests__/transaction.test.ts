@@ -6,12 +6,12 @@ import { withTestDatabase } from "./test-database.ts";
 Deno.test(
   "insert",
   withTestDatabase(async (sql) => {
-    const builder = insert("user")({ data: "test" });
+    const builder = insert("user")({ email: "user@domain.tld" });
 
     await transaction(builder);
 
     const [{ count }] =
-      await sql`SELECT count(*) FROM "user" WHERE data = 'test'`;
+      await sql`SELECT count(*) FROM "user" WHERE email = 'user@domain.tld'`;
 
     assertEquals(count, "1");
 

@@ -10,60 +10,68 @@ import {
 } from "../statement-builder.ts";
 
 Deno.test("insert", () => {
-  const insertUserStatement = insert("user")({ data: "test" }).toSql();
+  const insertUserStatement = insert("user")({ email: "user@domain.tld" })
+    .toSql();
 
   assertEquals(
     insertUserStatement,
-    `INSERT INTO "user"  (data) VALUES (('test'))`,
+    `INSERT INTO "user"  (email) VALUES (('user@domain.tld'))`,
   );
 });
 
 Deno.test("insert json", () => {
   const insertWithJson = insert("user")({
-    data: "test",
+    email: "user@domain.tld",
     tags: [{ someKey: "some value" }],
   }).toSql();
 
   assertEquals(
     insertWithJson,
-    `INSERT INTO "user"  (data, tags) VALUES (('test'), ('[{"someKey":"some value"}]'))`,
+    `INSERT INTO "user"  (email, tags) VALUES (('user@domain.tld'), ('[{"someKey":"some value"}]'))`,
   );
 });
 
 Deno.test("returning", () => {
-  const insertUserBuilder = insert("user")({ data: "test" }).returning([
-    "data",
-  ]);
+  const insertUserBuilder = insert("user")({ email: "user@domain.tld" })
+    .returning([
+      "email",
+    ]);
 
   assertEquals(
     insertUserBuilder.toSql(),
-    `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data`,
+    `INSERT INTO "user"  (email) VALUES (('user@domain.tld'))  RETURNING email`,
   );
 
   // Should replace returning fields
   assertEquals(
-    insertUserBuilder.returning(["data", "tags"]).toSql(),
-    `INSERT INTO "user"  (data) VALUES (('test'))  RETURNING data , tags`,
+    insertUserBuilder.returning([
+      "email",
+      "tags",
+    ]).toSql(),
+    `INSERT INTO "user"  (email) VALUES (('user@domain.tld'))  RETURNING email , tags`,
   );
 });
 
 Deno.test("upsert", () => {
-  const upsertUserBuilder = upsert("user")({ data: "test" }).returning([
-    "data",
-  ]);
+  const upsertUserBuilder = upsert("user")({ email: "user@domain.tld" })
+    .returning([
+      "email",
+    ]);
 
   assertEquals(
     upsertUserBuilder.toSql(),
-    `INSERT INTO "user"  (data) VALUES (('test')) ON CONFLICT  DO UPDATE SET data = ('test')   RETURNING data`,
+    `INSERT INTO "user"  (email) VALUES (('user@domain.tld')) ON CONFLICT  DO UPDATE SET email = ('user@domain.tld')   RETURNING email`,
   );
 });
 
 Deno.test("update", () => {
-  const upsertUserBuilder = update("user")({ id: 1 }, { data: "test" });
+  const upsertUserBuilder = update("user")({ id: 1 }, {
+    email: "user@domain.tld",
+  });
 
   assertEquals(
     upsertUserBuilder.toSql(),
-    `UPDATE "user"   SET data = ('test')  WHERE (id = ('1'))`,
+    `UPDATE "user"   SET email = ('user@domain.tld')  WHERE (id = ('1'))`,
   );
 
   const upsertUserAccountBuilder = update("user_account")({ id: 1 }, {
@@ -94,20 +102,20 @@ Deno.test("update with multiple keys", () => {
 
 Deno.test("now", () => {
   const insertUserStatement = insert("user")({
-    data: "test",
+    email: "user@domain.tld",
     created_at: now(),
   }).toSql();
 
   assertEquals(
     insertUserStatement,
-    `INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))`,
+    `INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))`,
   );
 });
 
 Deno.test("insert with CTE without references", () => {
   const insertUserStatement = insertWith(
     insert("user")({
-      data: "test",
+      email: "user@domain.tld",
       created_at: now(),
     }).returning(["id"]),
   )(insert("user_account")({ account_id: 0, user_id: 0 })).returning([
@@ -116,19 +124,19 @@ Deno.test("insert with CTE without references", () => {
 
   assertEquals(
     insertUserStatement.toSql(),
-    `WITH "user" AS (INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))  RETURNING id ) INSERT INTO user_account  (account_id, user_id) VALUES (('0'), ('0'))  RETURNING created_at`,
+    `WITH "user" AS (INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))  RETURNING id ) INSERT INTO user_account  (account_id, user_id) VALUES (('0'), ('0'))  RETURNING created_at`,
   );
 });
 
 Deno.test("insert with associations", () => {
   const insertUserStatement = insert("user")({
-    data: "test",
+    email: "user@domain.tld",
     created_at: now(),
   }).associate({ account: { name: "some account" } });
 
   assertEquals(
     insertUserStatement.toSql(),
-    `WITH "user" AS (INSERT INTO "user"  (data, created_at) VALUES (('test'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) VALUES ("user" .id, account .id)`,
+    `WITH "user" AS (INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) VALUES ("user" .id, account .id)`,
   );
 });
 

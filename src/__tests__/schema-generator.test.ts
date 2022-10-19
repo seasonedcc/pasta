@@ -15,7 +15,7 @@ type Tables = {
       created_at?: string | TimestampFunctionCall
     };
     associations:
-      | { user: { data: string } }
+      | { user: { email: string } }
       | { user_account: { user_id: number } };
   },
   user: {
@@ -24,7 +24,7 @@ type Tables = {
     };
     columns: {
       id?: number;
-      data: string;
+      email: string;
       created_at?: string | TimestampFunctionCall;
       tags?: JSONValue
     };
@@ -47,7 +47,7 @@ type Tables = {
     };
     associations:
       | { account: { name: string } }
-      | { user: { data: string } };
+      | { user: { email: string } };
   }
 }
 type TableName = keyof Tables;
