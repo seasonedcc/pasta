@@ -10,7 +10,7 @@ function withTestDatabase(
     await sql`DROP TABLE IF EXISTS public."user", public.account, public.user_account CASCADE`;
     await sql`CREATE TABLE public."user" (
         id serial PRIMARY KEY,
-        email text NOT NULL,
+        email text NOT NULL UNIQUE,
         created_at timestamp NOT NULL DEFAULT now(),
         tags jsonb NOT NULL DEFAULT '[]'
       )`;
