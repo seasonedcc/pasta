@@ -34,6 +34,31 @@ type StatementBuilder<T extends TableName> = SeedBuilder & {
 type InsertBuilder<T extends TableName> = StatementBuilder<T> & {
   associate: (associationMap: AssociationsOf<T>) => InsertBuilder<T>;
 };
+type SelectBuilder<T extends TableName> = StatementBuilder<T> & {
+  where: (whereMap: ColumnsOf<T>) => SelectBuilder<T>;
+};
+
+const binaryOp = (op: string) => (left: Expr, right: Expr) =>
+  (
+    {
+      "type": "binary",
+      left,
+      right,
+      op,
+    }
+  ) as Expr;
+
+const refExpr = (name: string) => ({ "type": "ref", name }) as Expr;
+const stringExpr = (value: string) => ({ "type": "string", value }) as Expr;
+
+const eqList = (valuesMap: Record<string, unknown>) =>
+  binaryOp("=")({
+    type: "list",
+    expressions: Object.keys(valuesMap).map((k) => refExpr(k)),
+  }, {
+    type: "list",
+    expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
+  }) as Expr;
 
 function addReturning<T extends TableName>(builder: SeedBuilder) {
   const returningMapper = (columnNames: Name[]) =>
@@ -223,21 +248,6 @@ function update<T extends TableName>(table: T): (
   setValues: ColumnsOf<T>,
 ) => StatementBuilder<T> {
   return (keyValues, setValues) => {
-    const binaryOp = (op: string) => (left: Expr, right: Expr) =>
-      (
-        {
-          "type": "binary",
-          left,
-          right,
-          op,
-        }
-      ) as Expr;
-    const eq = (name: string, value: string) =>
-      binaryOp("=")({ "type": "ref", name }, {
-        "type": "string",
-        value,
-      }) as Expr;
-    const and = binaryOp("AND");
     const statement: Statement = {
       "type": "update",
       "table": { "name": table },
@@ -248,22 +258,7 @@ function update<T extends TableName>(table: T): (
           "value": String((setValues as Record<string, unknown>)[k]),
         },
       })),
-      "where": Object.keys(keyValues).reduce(
-        (previousValue, currentValue) => {
-          const currentEquality = eq(
-            currentValue,
-            String(
-              (keyValues as Record<string, unknown>)[currentValue],
-            ),
-          );
-          return (
-            ("type" in previousValue)
-              ? and(previousValue as Expr, currentEquality)
-              : currentEquality
-          );
-        },
-        {},
-      ) as Expr,
+      "where": eqList(keyValues),
     };
     const seedBuilder = {
       table,
@@ -333,7 +328,33 @@ function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
   return { ...builder, returning };
 }
 
-function select<T extends TableName>(table: T): () => StatementBuilder<T> {
+function addWhere<T extends TableName>(builder: StatementBuilder<T>) {
+  const whereMapper = (columns: ColumnsOf<T>) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        where: eqList(columns),
+      }),
+    }));
+
+  const where = function (
+    whereMap: ColumnsOf<T>,
+  ): StatementBuilder<T> {
+    const statementWithWhere = whereMapper(whereMap)
+      .statement(
+        builder.statement,
+      )! as SelectStatement;
+    const seedBuilder = {
+      table: builder.table,
+      statement: statementWithWhere,
+      toSql: () => toSql.statement(statementWithWhere),
+    };
+    return addSelectReturning(seedBuilder);
+  };
+  return { ...builder, where } as SelectBuilder<T>;
+}
+
+function select<T extends TableName>(table: T): () => SelectBuilder<T> {
   return function () {
     const statement: Statement = {
       "columns": [],
@@ -346,7 +367,7 @@ function select<T extends TableName>(table: T): () => StatementBuilder<T> {
       toSql: () => toSql.statement(statement),
     };
 
-    return addSelectReturning<T>(seedBuilder);
+    return addWhere<T>(addSelectReturning<T>(seedBuilder));
   };
 }
 

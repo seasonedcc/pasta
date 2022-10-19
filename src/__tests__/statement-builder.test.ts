@@ -1,4 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
+import { WSAEHOSTUNREACH } from "https://deno.land/std@0.132.0/node/internal_binding/_winerror.ts";
 import { now } from "../pg-catalog.ts";
 
 import {
@@ -71,7 +72,7 @@ Deno.test("update", () => {
 
   assertEquals(
     upsertUserBuilder.toSql(),
-    `UPDATE "user"   SET email = ('user@domain.tld')  WHERE (id = ('1'))`,
+    `UPDATE "user"   SET email = ('user@domain.tld')  WHERE ((id) = (('1')))`,
   );
 
   const upsertUserAccountBuilder = update("user_account")({ id: 1 }, {
@@ -81,7 +82,7 @@ Deno.test("update", () => {
 
   assertEquals(
     upsertUserAccountBuilder.toSql(),
-    `UPDATE user_account   SET user_id = ('1') , account_id = ('2')  WHERE (id = ('1'))`,
+    `UPDATE user_account   SET user_id = ('1') , account_id = ('2')  WHERE ((id) = (('1')))`,
   );
 });
 
@@ -96,7 +97,7 @@ Deno.test("update with multiple keys", () => {
 
   assertEquals(
     upsertUserAccountBuilderWithCompositeKey.toSql(),
-    `UPDATE user_account   SET user_id = ('1') , account_id = ('2')  WHERE ((user_id = ('1')) AND (account_id = ('2')))`,
+    `UPDATE user_account   SET user_id = ('1') , account_id = ('2')  WHERE ((user_id, account_id) = (('1'), ('2')))`,
   );
 });
 
@@ -155,5 +156,15 @@ Deno.test("select id from user", () => {
   assertEquals(
     selectId.toSql(),
     `SELECT id  FROM "user"`,
+  );
+});
+
+Deno.test("select id from user where email = 'user@domain.tld'", () => {
+  const selectId = select("user")().where({ email: "user@domain.tld" })
+    .returning(["id"]);
+
+  assertEquals(
+    selectId.toSql(),
+    `SELECT id  FROM "user"   WHERE ((email) = (('user@domain.tld')))`,
   );
 });
