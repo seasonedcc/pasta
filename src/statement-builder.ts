@@ -31,6 +31,9 @@ type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
 type StatementBuilder<T extends TableName> = SeedBuilder & {
   returning: (options: ReturningOptions<T>) => StatementBuilder<T>;
 };
+type InsertBuilder<T extends TableName> = StatementBuilder<T> & {
+  associate: (associationMap: AssociationsOf<T>) => InsertBuilder<T>;
+};
 
 function addReturning<T extends TableName>(builder: SeedBuilder) {
   const returningMapper = (columnNames: Name[]) =>
@@ -80,13 +83,72 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
   return { ...builder, returning };
 }
 
+function addAssociate<T extends TableName>(
+  builder: StatementBuilder<T>,
+): InsertBuilder<T> {
+  const associate = (associationMap: AssociationsOf<T>) => {
+    for (
+      const [associated, associatedValues] of Object.entries(associationMap)
+    ) {
+      const association = associations[builder.table]?.[associated];
+      if (association?.kind == "MxN") {
+        const { fks, associativeTable } = association;
+        const associativeValues = Object.keys(fks).reduce(
+          (previousValue, currentValue) => {
+            previousValue[currentValue] = {
+              "type": "ref",
+              "table": {
+                "name": fks[currentValue][0],
+              },
+              "name": fks[currentValue][1],
+            };
+            return previousValue;
+          },
+          {} as Record<string, unknown>,
+        );
+        const returningFksAssociation = Object.values(fks).filter((
+          [fkTable],
+        ) => (fkTable == association.table))
+          .map(([_, fkColumn]) => (fkColumn));
+
+        const returningFksBuilder = Object.values(fks).filter((
+          [fkTable],
+        ) => (fkTable == builder.table))
+          .map(([_, fkColumn]) => (fkColumn));
+
+        const withStatement = insertWith(
+          insert(association.table)(associatedValues).returning(
+            returningFksAssociation as ReturningOptions<
+              typeof association.table
+            >,
+          ),
+        )(
+          insertWith(
+            builder.returning(
+              returningFksBuilder as ReturningOptions<typeof builder.table>,
+            ),
+          )(
+            // deno-lint-ignore no-explicit-any
+            insert(associativeTable)(associativeValues as any),
+          ),
+        );
+        return addReturning<T>({
+          table: builder.table,
+          toSql: () => toSql.statement(withStatement.statement),
+          statement: withStatement.statement,
+        });
+      }
+    }
+  };
+  return { ...builder, associate } as InsertBuilder<T>;
+}
+
 function insert<T extends TableName>(
   table: T,
 ): (
   valueMap: ColumnsOf<T>,
-  associationMap?: AssociationsOf<T>,
-) => StatementBuilder<T> {
-  return function (valueMap, associationMap) {
+) => InsertBuilder<T> {
+  return function (valueMap) {
     const columns = Object.keys(valueMap).map((k) => ({ name: k }));
     const values = [
       Object.values(valueMap).map((
@@ -109,66 +171,11 @@ function insert<T extends TableName>(
       },
       columns,
     };
-    const builder = addReturning<T>({
+    return addAssociate<T>(addReturning<T>({
       table,
       toSql: () => toSql.statement(statement),
       statement,
-    });
-    if (associationMap) {
-      for (
-        const [associated, associatedValues] of Object.entries(associationMap)
-      ) {
-        const association = associations[table]?.[associated];
-        if (association?.kind == "MxN") {
-          const { fks, associativeTable } = association;
-          const associativeValues = Object.keys(fks).reduce(
-            (previousValue, currentValue) => {
-              previousValue[currentValue] = {
-                "type": "ref",
-                "table": {
-                  "name": fks[currentValue][0],
-                },
-                "name": fks[currentValue][1],
-              };
-              return previousValue;
-            },
-            {} as Record<string, unknown>,
-          );
-          const returningFksAssociation = Object.values(fks).filter((
-            [fkTable],
-          ) => (fkTable == association.table))
-            .map(([_, fkColumn]) => (fkColumn));
-
-          const returningFksBuilder = Object.values(fks).filter((
-            [fkTable],
-          ) => (fkTable == builder.table))
-            .map(([_, fkColumn]) => (fkColumn));
-
-          const withStatement = insertWith(
-            insert(association.table)(associatedValues).returning(
-              returningFksAssociation as ReturningOptions<
-                typeof association.table
-              >,
-            ),
-          )(
-            insertWith(
-              builder.returning(
-                returningFksBuilder as ReturningOptions<typeof builder.table>,
-              ),
-            )(
-              // deno-lint-ignore no-explicit-any
-              insert(associativeTable)(associativeValues as any),
-            ),
-          );
-          return addReturning<T>({
-            table,
-            toSql: () => toSql.statement(withStatement.statement),
-            statement: withStatement.statement,
-          });
-        }
-      }
-    }
-    return builder;
+    }));
   };
 }
 

@@ -124,7 +124,7 @@ Deno.test("insert with associations", () => {
   const insertUserStatement = insert("user")({
     data: "test",
     created_at: now(),
-  }, { account: { name: "some account" } });
+  }).associate({ account: { name: "some account" } });
 
   assertEquals(
     insertUserStatement.toSql(),
