@@ -1,9 +1,9 @@
 import { parse } from "https://deno.land/std@0.148.0/flags/mod.ts";
+import { extractSchema } from "./schema-extractor.ts";
 import {
-  extractSchema,
   generatePgCatalog,
   generateSchema,
-} from "./schema-extractor.ts";
+} from "./static-modules-generator.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
 const { "_": connectionUrl } = parse(Deno.args);
