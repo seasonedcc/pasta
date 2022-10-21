@@ -23,7 +23,9 @@ All examples will use the schema defined as part of the tests for the library wh
 Let's start with a simple mutation, inserting a new user in our database:
 
 ```ts
-import { tables: { user }, db } from 'src/database'
+import { tables, db, functions } from 'src/database';
+const { user } = tables;
+const { now } = functions;
 
 await db.transaction(
   user.insert({ email: "user2@someaccout.tld" })
@@ -71,6 +73,8 @@ const [{ id, email }] = await db.transaction(
 )
 ```
 
+## Filtering existing data
+
 In case you want to filter your `SELECT` just use the `where` function.
 
 ```ts
@@ -84,7 +88,7 @@ const [{ id, email }] = await db.transaction(
 In case you want to return a single record you have 2 options. You could use `whereUnique`
 
 ```ts
-const { id, email } = await db.transaction(
+const [{ id, email }] = await db.transaction(
   user.unique({ email: "user2@someaccout.tld" }).returning(["id", "email"])
 )
 ```
@@ -92,7 +96,7 @@ const { id, email } = await db.transaction(
 In the example above the function `transaction` knows that the statement from `whereUnique` can return only one row, so the return type is potentially null. To avoid having to deal with nullable data you can use the `transactionReturning` function.
 
 ```ts
-const { id, email } = await db.transactionReturning(
+const [{ id, email }] = await db.transactionReturning(
   user.unique({ email: "user2@someaccout.tld" }),
   ["id", "email"]
 )
