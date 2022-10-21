@@ -1,5 +1,5 @@
 import { assertEquals } from "./prelude.ts";
-import { now } from "../../database/pg-catalog.ts";
+import { now } from "../database/pg-catalog.ts";
 
 import {
   insert,
@@ -7,7 +7,7 @@ import {
   select,
   update,
   upsert,
-} from "../../database/statement-builder.ts";
+} from "../database/statement-builder.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ email: "user@domain.tld" })

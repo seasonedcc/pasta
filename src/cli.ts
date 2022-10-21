@@ -12,7 +12,7 @@ const { "_": connectionUrl } = parse(Deno.args);
 
 const sql = postgres(`${connectionUrl}`);
 
-const path = "./database";
+const path = "./src/database";
 await Deno.mkdir(path, { recursive: true });
 await Promise.all([
   Deno.writeTextFile(
