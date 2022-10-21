@@ -18,4 +18,12 @@ async function transaction(statement: SeedBuilder) {
   return r;
 }
 
-export { connection, transaction };
+async function transactionReturning(statement: SeedBuilder) {
+  const r = await transaction(statement);
+  if (r.length === 0) {
+    throw new Error(`Statement ${statement.toSql()} did not return any rows`);
+  }
+  return r;
+}
+
+export { connection, transaction, transactionReturning };

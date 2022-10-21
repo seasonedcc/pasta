@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
+import { assertRejects } from "https://deno.land/std@0.132.0/testing/asserts.ts";
 import { insert } from "../statement-builder.ts";
-import { transaction } from "../transaction.ts";
+import { transaction, transactionReturning } from "../transaction.ts";
 import { withTestDatabase } from "./test-database.ts";
 
 Deno.test(
@@ -27,6 +28,30 @@ Deno.test(
     ]);
 
     const [{ email }] = await transaction(builder);
+
+    assertEquals(email, "user@domain.tld");
+
+    await sql.end({ timeout: 5 });
+  }),
+);
+
+Deno.test(
+  "transactionReturning - insert",
+  withTestDatabase(async () => {
+    await assertRejects(() =>
+      transactionReturning(insert("user")({ email: "user@domain.tld" }))
+    );
+  }),
+);
+
+Deno.test(
+  "transactionReturning - insert returning",
+  withTestDatabase(async (sql) => {
+    const builder = insert("user")({ email: "user@domain.tld" }).returning([
+      "email",
+    ]);
+
+    const [{ email }] = await transactionReturning(builder);
 
     assertEquals(email, "user@domain.tld");
 
