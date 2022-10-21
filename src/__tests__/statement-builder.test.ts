@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
+import { assertEquals } from "./prelude.ts";
 import { now } from "../../database/pg-catalog.ts";
 
 import {
