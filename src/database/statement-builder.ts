@@ -407,4 +407,4 @@ function select<T extends TableName>(table: T): () => SelectBuilder<T> {
 }
 
 export { insert, insertWith, select, update, upsert };
-export type { SeedBuilder, StatementBuilder };
+export type { SeedBuilder, StatementBuilder, SelectBuilder, InsertBuilder };

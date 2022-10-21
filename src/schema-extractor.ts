@@ -1,6 +1,8 @@
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
-async function extractSchema(sql: postgres.Sql<{}>) {
+type Connection = postgres.Sql<Record<never, never>>;
+
+async function extractSchema(sql: Connection) {
   const tables = await sql`
 WITH relations AS (
   SELECT
@@ -323,4 +325,60 @@ export { associations };
 `;
 }
 
-export { extractSchema };
+async function extractBuilders(sql: Connection) {
+  const tables = await sql`
+WITH relations AS (
+  SELECT
+    c.oid,
+    n.nspname as schema,
+    c.relname as name,
+    c.oid || array_agg(pa) filter (WHERE pa IS NOT NULL) AS oids
+  FROM
+    pg_catalog.pg_class c
+    LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    LEFT JOIN pg_partition_ancestors(c.oid) pa on true
+  WHERE
+    c.relkind IN ('r','p','','v','m','f')
+    AND n.nspname <> 'pg_catalog'
+    AND n.nspname <> 'information_schema'
+    AND n.nspname !~ '^pg_toast'
+    AND pg_catalog.pg_table_is_visible(c.oid)
+  GROUP BY c.oid, n.nspname, c.relname
+  ORDER BY
+    n.nspname, c.relname
+) SELECT * FROM relations
+  `;
+
+  const tableNames = tables.map((t) => t.name as string);
+  const builderDefinitions = tableNames.map((t) => (`
+const ${t}: TableBuilder<"${t}"> = {
+  select: select("${t}")(),
+  insert: insert("${t}"),
+  where: select("${t}")().where,
+  unique: select("${t}")().unique,
+};`)).join("\n");
+
+  return `
+import { ColumnsOf, KeysOf, TableName } from "./schema.ts";
+import {
+  insert,
+  InsertBuilder,
+  select,
+  SelectBuilder,
+} from "./statement-builder.ts";
+
+type TableBuilder<T extends TableName> = {
+  select: SelectBuilder<T>;
+  insert: (values: ColumnsOf<T>) => InsertBuilder<T>;
+  where: (values: ColumnsOf<T>) => SelectBuilder<T>;
+  unique: (values: KeysOf<T>) => SelectBuilder<T>;
+};
+
+${builderDefinitions}
+
+const tables = { ${tableNames.join(", ")} };
+
+export { tables };
+`;
+}
+export { extractBuilders, extractSchema };
