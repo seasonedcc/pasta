@@ -2,8 +2,10 @@
 import {
   astMapper,
   Expr,
+  From,
   InsertStatement,
   Name,
+  SelectedColumn,
   SelectStatement,
   Statement,
   toSql,
@@ -52,6 +54,10 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
   ) as Expr;
 
 const refExpr = (name: string) => ({ "type": "ref", name }) as Expr;
+
+const columnRef = (table: string, name: string) =>
+  ({ "type": "ref", table: { name: table }, name }) as Expr;
+
 const stringExpr = (value: string) => ({ "type": "string", value }) as Expr;
 
 const eqList = (valuesMap: Record<string, unknown>) =>
@@ -142,6 +148,13 @@ function addAssociate<T extends TableName>(
     ) => (fkTable == builder.table))
       .map(([_, fkColumn]) => (fkColumn));
 
+    const targetAssociationColumns = Object.keys(
+      associativeValues,
+    ) as string[];
+    const sourceColumns = Object.fromEntries(targetAssociationColumns.map((
+      k,
+    ) => fks[k]));
+
     const withStatement = insertWith(
       insert(association.table)(
         // deno-lint-ignore no-explicit-any
@@ -157,8 +170,11 @@ function addAssociate<T extends TableName>(
           returningFksBuilder as ReturningOptions<typeof builder.table>,
         ),
       )(
-        // deno-lint-ignore no-explicit-any
-        insert(associativeTable)(associativeValues as any),
+        insertFrom(associativeTable)(
+          sourceColumns,
+          // deno-lint-ignore no-explicit-any
+          targetAssociationColumns as any,
+        ),
       ),
     );
     return withStatement as InsertBuilder<T>;
@@ -175,6 +191,44 @@ function addAssociate<T extends TableName>(
     }
   };
   return { ...builder, associate } as InsertBuilder<T>;
+}
+
+function insertFrom<T extends TableName>(
+  table: T,
+): (
+  valueMap: Record<string, string>,
+  columns: (keyof ColumnsOf<T>)[],
+) => InsertBuilder<T> {
+  return function (valueMap, columns) {
+    const sourceColumns = Object.keys(valueMap).map((
+      k,
+    ) => ({ expr: columnRef(k, valueMap[k]) })) as SelectedColumn[];
+
+    const from = Object.keys(valueMap).map((t) => ({
+      "type": "table",
+      "name": {
+        "name": t,
+      },
+    })) as From[];
+
+    const targetColumns = columns.map((c) => ({ name: c })) as Name[];
+
+    const statement: InsertStatement = {
+      "type": "insert",
+      "into": { "name": table },
+      "insert": {
+        "type": "select",
+        columns: sourceColumns,
+        from,
+      },
+      columns: targetColumns,
+    };
+    return addAssociate<T>(addReturning<T>({
+      table,
+      toSql: () => toSql.statement(statement),
+      statement,
+    }));
+  };
 }
 
 function insert<T extends TableName>(
@@ -407,4 +461,5 @@ function select<T extends TableName>(table: T): () => SelectBuilder<T> {
 }
 
 export { insert, insertWith, select, update, upsert };
-export type { SeedBuilder, StatementBuilder, SelectBuilder, InsertBuilder };
+export type { InsertBuilder, SeedBuilder, SelectBuilder, StatementBuilder };
+  

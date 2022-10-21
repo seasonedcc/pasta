@@ -17,7 +17,7 @@ await build({
       name: "postgres",
       version: "^3.2.4",
     },
-    "https://deno.land/x/pgsql_ast_parser@10.2.0/mod.ts": {
+    "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts": {
       name: "pgsql-ast-parser",
       version: "^10.2.0",
     },

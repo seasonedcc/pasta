@@ -136,7 +136,7 @@ Deno.test("insert with associations", () => {
 
   assertEquals(
     insertUserStatement.toSql(),
-    `WITH "user" AS (INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) VALUES ("user" .id, account .id)`,
+    `WITH "user" AS (INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) SELECT "user" .id , account .id  FROM "user"  ,account`,
   );
 });
 
