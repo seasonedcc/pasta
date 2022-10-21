@@ -13,8 +13,9 @@ async function transaction(statement: SeedBuilder) {
     throw new Error("Please set DATABASE_URL to use database access functions");
   }
   const sql = postgres(uri);
-  await sql.unsafe(statement.toSql());
-  return sql.end({ timeout: 5 });
+  const r = await sql.unsafe(statement.toSql());
+  await sql.end({ timeout: 5 });
+  return r;
 }
 
 export { connection, transaction };
