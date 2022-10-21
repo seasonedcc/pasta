@@ -1,5 +1,4 @@
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
-import { WSAEHOSTUNREACH } from "https://deno.land/std@0.132.0/node/internal_binding/_winerror.ts";
 import { now } from "../pg-catalog.ts";
 
 import {
