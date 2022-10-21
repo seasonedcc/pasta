@@ -43,7 +43,7 @@ await db.transaction(
   user.insert(
     { email: "user2@someaccout.tld", created_at: now() }
   ).associate(
-    { account: [{ name: "some product name" }] }
+    { account: { name: "some product name" } }
   )
 )
 ```
@@ -54,11 +54,11 @@ In our database schema, PostgreSQL generates uuids as a user identifier.
 Let's say you want to use this identifier, this is how you obtain it in the same transaction as the user is created.
 
 ```ts
-const { id } = await db.transaction(
+const [{ id }] = await db.transaction(
   user.insert(
     { email: "user2@someaccout.tld", created_at: now() }
   ).associate(
-    { account: [{ name: "some product name" }] }
+    { account: { name: "some product name" } }
   ).returning(["id"])
 )
 ```
