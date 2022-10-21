@@ -16,7 +16,7 @@ import {
   KeysOf,
   MxNAssociation,
   TableName,
-} from "./schema.ts";
+} from "../database/schema.ts";
 
 type SeedBuilder = {
   table: TableName;

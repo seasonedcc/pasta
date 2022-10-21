@@ -1,4 +1,4 @@
-import { generateSchema } from "../schema-generator.ts";
+import { generateCustomSchema } from "../schema-generator.ts";
 import { withTestDatabase } from "./test-database.ts";
 import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
 
@@ -111,7 +111,7 @@ export { associations };
 Deno.test(
   "generateSchema",
   withTestDatabase(async (sql) => {
-    const schema = await generateSchema(sql);
+    const schema = await generateCustomSchema(sql);
 
     assertEquals(schema, expectedSchema);
   }),
