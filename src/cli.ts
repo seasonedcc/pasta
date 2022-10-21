@@ -3,6 +3,7 @@ import { extractSchema } from "./schema-extractor.ts";
 import {
   generatePgCatalog,
   generateSchema,
+  generateStatementBuilder,
 } from "./static-modules-generator.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
@@ -24,6 +25,10 @@ await Promise.all([
   Deno.writeTextFile(
     `${path}/schema.ts`,
     generateSchema(),
+  ),
+  Deno.writeTextFile(
+    `${path}/statement-builder.ts`,
+    generateStatementBuilder(),
   ),
 ]);
 

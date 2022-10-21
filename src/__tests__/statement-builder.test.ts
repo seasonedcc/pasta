@@ -7,7 +7,7 @@ import {
   select,
   update,
   upsert,
-} from "../statement-builder.ts";
+} from "../../database/statement-builder.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ email: "user@domain.tld" })
