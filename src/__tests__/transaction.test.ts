@@ -1,5 +1,7 @@
-import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
-import { assertRejects } from "https://deno.land/std@0.132.0/testing/asserts.ts";
+import {
+  assertEquals,
+  assertRejects,
+} from "https://deno.land/std@0.160.0/testing/asserts.ts";
 import { insert } from "../../database/statement-builder.ts";
 import { transaction, transactionReturning } from "../transaction.ts";
 import { withTestDatabase } from "./test-database.ts";

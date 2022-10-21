@@ -1,6 +1,6 @@
 import { extractSchema } from "../schema-extractor.ts";
 import { withTestDatabase } from "./test-database.ts";
-import { assertEquals } from "https://deno.land/std@0.117.0/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std@0.160.0/testing/asserts.ts";
 
 const expectedSchema =
   `import { JSONValue, TimestampFunctionCall } from "./pg-catalog.ts";
