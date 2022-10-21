@@ -1,6 +1,7 @@
 import { parse } from "https://deno.land/std@0.148.0/flags/mod.ts";
 import { extractSchema } from "./schema-extractor.ts";
 import {
+  generateIndex,
   generatePgCatalog,
   generateSchema,
   generateStatementBuilder,
@@ -34,6 +35,10 @@ await Promise.all([
   Deno.writeTextFile(
     `${path}/transaction.ts`,
     generateTransaction(),
+  ),
+  Deno.writeTextFile(
+    `${path}/index.ts`,
+    generateIndex(),
   ),
 ]);
 

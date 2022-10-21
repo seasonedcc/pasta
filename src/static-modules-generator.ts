@@ -536,7 +536,14 @@ export { connection, db, transaction, transactionReturning };
 `;
 }
 
+function generateIndex() {
+  return `${header()}
+export { db } from "./transaction.ts";
+`;
+}
+
 export {
+  generateIndex,
   generatePgCatalog,
   generateSchema,
   generateStatementBuilder,
