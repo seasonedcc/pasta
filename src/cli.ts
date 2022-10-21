@@ -1,9 +1,9 @@
 import { parse } from "https://deno.land/std@0.148.0/flags/mod.ts";
 import {
-  generateCustomSchema,
+  extractSchema,
   generatePgCatalog,
   generateSchema,
-} from "./schema-generator.ts";
+} from "./schema-extractor.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
 const { "_": connectionUrl } = parse(Deno.args);
@@ -15,7 +15,7 @@ await Deno.mkdir(path, { recursive: true });
 await Promise.all([
   Deno.writeTextFile(
     `${path}/custom-schema.ts`,
-    await generateCustomSchema(sql),
+    await extractSchema(sql),
   ),
   Deno.writeTextFile(
     `${path}/pg-catalog.ts`,
