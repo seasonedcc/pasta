@@ -10,7 +10,6 @@ import {
   WithStatement,
 } from "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts";
 import {
-  Association,
   associations,
   AssociationsOf,
   ColumnsOf,
@@ -38,6 +37,7 @@ type InsertBuilder<T extends TableName> = StatementBuilder<T> & {
 };
 type SelectBuilder<T extends TableName> = StatementBuilder<T> & {
   where: (whereMap: ColumnsOf<T>) => SelectBuilder<T>;
+  unique: (whereMap: KeysOf<T>) => SelectBuilder<T>;
 };
 
 const binaryOp = (op: string) => (left: Expr, right: Expr) =>
@@ -362,11 +362,37 @@ function addWhere<T extends TableName>(builder: StatementBuilder<T>) {
   return { ...builder, where } as SelectBuilder<T>;
 }
 
+function addUnique<T extends TableName>(builder: StatementBuilder<T>) {
+  const whereMapper = (columns: KeysOf<T>) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        where: eqList(columns),
+      }),
+    }));
+
+  const unique = function (
+    whereMap: KeysOf<T>,
+  ): StatementBuilder<T> {
+    const statementWithWhere = whereMapper(whereMap)
+      .statement(
+        builder.statement,
+      )! as SelectStatement;
+    const seedBuilder = {
+      table: builder.table,
+      statement: statementWithWhere,
+      toSql: () => toSql.statement(statementWithWhere),
+    };
+    return addSelectReturning(seedBuilder);
+  };
+  return { ...builder, unique } as SelectBuilder<T>;
+}
+
 function select<T extends TableName>(table: T): () => SelectBuilder<T> {
   return function () {
     const statement: Statement = {
       "columns": [],
-      "from": [{ "type": "table", "name": { "name": "user" } }],
+      "from": [{ "type": "table", "name": { "name": table } }],
       "type": "select",
     };
     const seedBuilder = {
@@ -375,7 +401,7 @@ function select<T extends TableName>(table: T): () => SelectBuilder<T> {
       toSql: () => toSql.statement(statement),
     };
 
-    return addWhere<T>(addSelectReturning<T>(seedBuilder));
+    return addUnique<T>(addWhere<T>(addSelectReturning<T>(seedBuilder)));
   };
 }
 

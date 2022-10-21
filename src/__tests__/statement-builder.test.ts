@@ -158,8 +158,18 @@ Deno.test("select id from user", () => {
   );
 });
 
-Deno.test("select id from user where email = 'user@domain.tld'", () => {
-  const selectId = select("user")().where({ email: "user@domain.tld" })
+Deno.test("select id from account where name = 'some account'", () => {
+  const selectId = select("account")().where({ name: "some account" })
+    .returning(["id"]);
+
+  assertEquals(
+    selectId.toSql(),
+    `SELECT id  FROM account   WHERE ((name) = (('some account')))`,
+  );
+});
+
+Deno.test("unique - select id from user where email = 'user@domain.tld'", () => {
+  const selectId = select("user")().unique({ email: "user@domain.tld" })
     .returning(["id"]);
 
   assertEquals(

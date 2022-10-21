@@ -16,6 +16,8 @@ type Tables = {
   user: {
     keys: {
       id: number;
+    } | {
+      email: string;
     };
     columns: {
       id?: number;
