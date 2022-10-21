@@ -4,6 +4,7 @@ import {
   generatePgCatalog,
   generateSchema,
   generateStatementBuilder,
+  generateTransaction,
 } from "./static-modules-generator.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
@@ -29,6 +30,10 @@ await Promise.all([
   Deno.writeTextFile(
     `${path}/statement-builder.ts`,
     generateStatementBuilder(),
+  ),
+  Deno.writeTextFile(
+    `${path}/transaction.ts`,
+    generateTransaction(),
   ),
 ]);
 
