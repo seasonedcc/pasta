@@ -1,2 +1,2 @@
-export * from "./mutations.ts";
-export * from "./transaction.ts";
+export * from "./schema-extractor.ts";
+export * as db from "./static-modules-generator.ts";
