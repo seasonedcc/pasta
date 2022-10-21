@@ -520,12 +520,19 @@ async function transaction(statement: SeedBuilder) {
 async function transactionReturning(statement: SeedBuilder) {
   const r = await transaction(statement);
   if (r.length === 0) {
-    throw new Error("Statement" + statement.toSql() + " did not return any rows");
+    throw new Error(
+      "Statement" + statement.toSql() + " did not return any rows",
+    );
   }
   return r;
 }
 
-export { connection, transaction, transactionReturning };
+const db = {
+  transaction,
+  transactionReturning,
+};
+
+export { connection, db, transaction, transactionReturning };
 `;
 }
 
