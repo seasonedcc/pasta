@@ -17,6 +17,7 @@ function withTestDatabase(
     await sql`CREATE TABLE public.account (
       id serial PRIMARY KEY,
       name text NOT NULL,
+      deactivated_at timestamp,
       created_at timestamp NOT NULL DEFAULT now()
     )`;
     await sql`CREATE TABLE public.user_account (

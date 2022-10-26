@@ -126,12 +126,12 @@ keys AS (
     c2.relname as index_name
   FROM
     pg_catalog.pg_index i
-    JOIN pg_catalog.pg_class c ON c.oid = i.indrelid
-    JOIN pg_catalog.pg_class c2 ON c2.oid = i.indexrelid
+    JOIN pg_catalog.pg_class c ON c.oid = i.indrelid -- main relation
+    JOIN pg_catalog.pg_class c2 ON c2.oid = i.indexrelid -- index relation
     LEFT JOIN columns co ON co.attrelid = c2.oid
   WHERE
     i.indisunique
-    AND true = ALL(SELECT co2.attnotnull FROM columns co2 WHERE co2.attrelid = c.oid)
+    --AND true = ALL(SELECT co2.attnotnull FROM columns co2 WHERE co2.attrelid = c.oid)
 ),
 
 associations AS (

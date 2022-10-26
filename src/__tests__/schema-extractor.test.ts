@@ -11,6 +11,7 @@ type Tables = {
     columns: {
       id?: number;
       name: string;
+      deactivated_at?: string | TimestampFunctionCall;
       created_at?: string | TimestampFunctionCall
     };
     associations:
