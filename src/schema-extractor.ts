@@ -179,7 +179,7 @@ SELECT
   (SELECT jsonb_agg(row_to_json(a.*) ORDER BY a.table) FROM direct_associations a WHERE a.oid = r.oid) as direct_associations,
   (SELECT jsonb_agg(row_to_json(i.*) ORDER BY i.table) FROM indirect_associations i WHERE i.oid = r.oid) as indirect_associations,
   (SELECT jsonb_agg(row_to_json(k.*) ORDER BY k.is_primary DESC, k.index_name) FROM keys k WHERE k.oid = r.oid) as keys,
-  (SELECT jsonb_agg(row_to_json(ac.*) ORDER BY ac.table, ac.attnum) FROM association_columns ac WHERE ac.oid = r.oid) as association_columns
+  (SELECT coalesce(jsonb_agg(row_to_json(ac.*) ORDER BY ac.table, ac.attnum), '[]') FROM association_columns ac WHERE ac.oid = r.oid) as association_columns
 FROM
   relations r
   JOIN columns c ON c.attrelid = r.oid
@@ -234,7 +234,7 @@ ORDER BY r.schema, r.name`;
       const columnsType = columns.map((c) => `${c.name}: ${c.column_ts_type}`)
         .join("; ");
       return `{ ${k}: { ${columnsType} } }`;
-    }).join("\n      | ");
+    });
 
     return `${el.name}: {
     keys: {
@@ -253,7 +253,11 @@ ORDER BY r.schema, r.name`;
     }
     };
     associations:
-      | ${associationColumns};
+      | ${
+      associationColumns.length > 0
+        ? associationColumns.join("\n      | ")
+        : "never"
+    };
   }`;
   }).join(
     ",\n  ",

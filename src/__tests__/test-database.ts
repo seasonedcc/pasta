@@ -7,7 +7,7 @@ function withTestDatabase(
     const uri = "postgres://localhost/pasta_test";
     Deno.env.set("DATABASE_URL", uri);
     const sql = postgres(uri);
-    await sql`DROP TABLE IF EXISTS public."user", public.account, public.user_account CASCADE`;
+    await sql`DROP TABLE IF EXISTS public."user", public.account, public.user_account, public.settings CASCADE`;
     await sql`CREATE TABLE public."user" (
         id serial PRIMARY KEY,
         email text NOT NULL UNIQUE,
@@ -29,6 +29,11 @@ function withTestDatabase(
     )`;
     await sql`CREATE UNIQUE INDEX user_account_key
       ON public.user_account (user_id, account_id)`;
+    await sql`CREATE TABLE public.settings (
+      key text PRIMARY KEY,
+      value text NOT NULL,
+      created_at timestamp NOT NULL DEFAULT now()
+    )`;
 
     return testCase(sql).then(() => sql.end());
   };

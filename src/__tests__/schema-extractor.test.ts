@@ -18,6 +18,18 @@ type Tables = {
       | { user: { email: string } }
       | { user_account: { user_id: number } };
   },
+  settings: {
+    keys: {
+      key: string;
+    };
+    columns: {
+      key: string;
+      value: string;
+      created_at?: string | TimestampFunctionCall
+    };
+    associations:
+      | never;
+  },
   user: {
     keys: {
       id: number;
@@ -76,6 +88,9 @@ const associations: Associations = {
       table: "user",
       fks: {"account_id":["account","id"],"user_id":["user","id"]}
     }
+  },
+  settings: {
+    
   },
   user: {
     user_account: {
