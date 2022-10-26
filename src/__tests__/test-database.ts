@@ -18,7 +18,8 @@ function withTestDatabase(
       id serial PRIMARY KEY,
       name text NOT NULL,
       deactivated_at timestamp,
-      created_at timestamp NOT NULL DEFAULT now()
+      created_at timestamp NOT NULL DEFAULT now(),
+      UNIQUE (name, deactivated_at)
     )`;
     await sql`CREATE TABLE public.user_account (
       id serial PRIMARY KEY,

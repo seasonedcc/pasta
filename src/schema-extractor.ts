@@ -131,7 +131,13 @@ keys AS (
     LEFT JOIN columns co ON co.attrelid = c2.oid
   WHERE
     i.indisunique
-    --AND true = ALL(SELECT co2.attnotnull FROM columns co2 WHERE co2.attrelid = c.oid)
+    AND true = ALL(
+      SELECT table_columns.attnotnull 
+      FROM columns table_columns 
+      WHERE table_columns.attrelid = c.oid AND table_columns.name IN (
+        SELECT name FROM columns index_columns WHERE index_columns.attrelid = c2.oid
+      )
+    )
 ),
 
 associations AS (
