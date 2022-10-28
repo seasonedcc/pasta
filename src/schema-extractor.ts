@@ -126,12 +126,18 @@ keys AS (
     c2.relname as index_name
   FROM
     pg_catalog.pg_index i
-    JOIN pg_catalog.pg_class c ON c.oid = i.indrelid
-    JOIN pg_catalog.pg_class c2 ON c2.oid = i.indexrelid
+    JOIN pg_catalog.pg_class c ON c.oid = i.indrelid -- main relation
+    JOIN pg_catalog.pg_class c2 ON c2.oid = i.indexrelid -- index relation
     LEFT JOIN columns co ON co.attrelid = c2.oid
   WHERE
     i.indisunique
-    AND true = ALL(SELECT co2.attnotnull FROM columns co2 WHERE co2.attrelid = c.oid)
+    AND true = ALL(
+      SELECT table_columns.attnotnull 
+      FROM columns table_columns 
+      WHERE table_columns.attrelid = c.oid AND table_columns.name IN (
+        SELECT name FROM columns index_columns WHERE index_columns.attrelid = c2.oid
+      )
+    )
 ),
 
 associations AS (
@@ -173,7 +179,7 @@ SELECT
   (SELECT jsonb_agg(row_to_json(a.*) ORDER BY a.table) FROM direct_associations a WHERE a.oid = r.oid) as direct_associations,
   (SELECT jsonb_agg(row_to_json(i.*) ORDER BY i.table) FROM indirect_associations i WHERE i.oid = r.oid) as indirect_associations,
   (SELECT jsonb_agg(row_to_json(k.*) ORDER BY k.is_primary DESC, k.index_name) FROM keys k WHERE k.oid = r.oid) as keys,
-  (SELECT jsonb_agg(row_to_json(ac.*) ORDER BY ac.table, ac.attnum) FROM association_columns ac WHERE ac.oid = r.oid) as association_columns
+  (SELECT coalesce(jsonb_agg(row_to_json(ac.*) ORDER BY ac.table, ac.attnum), '[]') FROM association_columns ac WHERE ac.oid = r.oid) as association_columns
 FROM
   relations r
   JOIN columns c ON c.attrelid = r.oid
@@ -228,7 +234,7 @@ ORDER BY r.schema, r.name`;
       const columnsType = columns.map((c) => `${c.name}: ${c.column_ts_type}`)
         .join("; ");
       return `{ ${k}: { ${columnsType} } }`;
-    }).join("\n      | ");
+    });
 
     return `${el.name}: {
     keys: {
@@ -247,7 +253,11 @@ ORDER BY r.schema, r.name`;
     }
     };
     associations:
-      | ${associationColumns};
+      | ${
+      associationColumns.length > 0
+        ? associationColumns.join("\n      | ")
+        : "never"
+    };
   }`;
   }).join(
     ",\n  ",

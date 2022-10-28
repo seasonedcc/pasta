@@ -11,11 +11,24 @@ type Tables = {
     columns: {
       id?: number;
       name: string;
+      deactivated_at?: string | TimestampFunctionCall;
       created_at?: string | TimestampFunctionCall
     };
     associations:
       | { user: { email: string } }
       | { user_account: { user_id: number } };
+  },
+  settings: {
+    keys: {
+      key: string;
+    };
+    columns: {
+      key: string;
+      value: string;
+      created_at?: string | TimestampFunctionCall
+    };
+    associations:
+      | never;
   },
   user: {
     keys: {
@@ -75,6 +88,9 @@ const associations: Associations = {
       table: "user",
       fks: {"account_id":["account","id"],"user_id":["user","id"]}
     }
+  },
+  settings: {
+    
   },
   user: {
     user_account: {

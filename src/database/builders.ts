@@ -22,6 +22,13 @@ const account: TableBuilder<"account"> = {
   unique: select("account")().unique,
 };
 
+const settings: TableBuilder<"settings"> = {
+  select: select("settings")(),
+  insert: insert("settings"),
+  where: select("settings")().where,
+  unique: select("settings")().unique,
+};
+
 const user: TableBuilder<"user"> = {
   select: select("user")(),
   insert: insert("user"),
@@ -36,6 +43,6 @@ const user_account: TableBuilder<"user_account"> = {
   unique: select("user_account")().unique,
 };
 
-const tables = { account, user, user_account };
+const tables = { account, settings, user, user_account };
 
 export { tables };
