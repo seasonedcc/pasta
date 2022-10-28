@@ -16,34 +16,34 @@ const sql = postgres(`${connectionUrl}`);
 const path = "./src/database";
 await Deno.mkdir(path, { recursive: true });
 await Promise.all([
-  Deno.writeTextFile(
+  [
     `${path}/custom-schema.ts`,
     await extractSchema(sql),
-  ),
-  Deno.writeTextFile(
+  ],
+  [
     `${path}/pg-catalog.ts`,
     generatePgCatalog(),
-  ),
-  Deno.writeTextFile(
+  ],
+  [
     `${path}/schema.ts`,
     generateSchema(),
-  ),
-  Deno.writeTextFile(
+  ],
+  [
     `${path}/statement-builder.ts`,
     generateStatementBuilder(),
-  ),
-  Deno.writeTextFile(
+  ],
+  [
     `${path}/transaction.ts`,
     generateTransaction(),
-  ),
-  Deno.writeTextFile(
+  ],
+  [
     `${path}/index.ts`,
     generateIndex(),
-  ),
-  Deno.writeTextFile(
+  ],
+  [
     `${path}/builders.ts`,
     await extractBuilders(sql),
-  ),
-]);
+  ],
+].map(([path, content]) => Deno.writeTextFile(path, content)));
 
 await sql.end();
