@@ -309,7 +309,7 @@ function addAssociate<T extends TableName>(
       k,
     ) => ({
       expr: stringExpr(
-        String(associatedValues[k]) as string,
+        String(associatedValues[k]),
       ),
     })) as unknown as SelectedColumn[];
 
