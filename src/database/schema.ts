@@ -14,10 +14,9 @@ type MxNAssociation = {
 };
 
 type NAssociation = {
-  kind: "MxN";
+  kind: "1xN";
   table: TableName;
-  associativeTable: TableName;
-  fks: Record<string, [string, string]>;
+  fks: Record<string, string>;
 };
 
 type Association =
@@ -38,3 +37,4 @@ export type {
   Tables,
 };
 export { associations };
+

@@ -128,7 +128,7 @@ Deno.test("insert with CTE without references", () => {
   );
 });
 
-Deno.test("insert with associations", () => {
+Deno.test("insert with MxN associations", () => {
   const insertUserStatement = insert("user")({
     email: "user@domain.tld",
     created_at: now(),
@@ -137,6 +137,18 @@ Deno.test("insert with associations", () => {
   assertEquals(
     insertUserStatement.toSql(),
     `WITH "user" AS (INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))  RETURNING id ) , account AS (INSERT INTO account  (name) VALUES (('some account'))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) SELECT "user" .id , account .id  FROM "user"  ,account`,
+  );
+});
+
+Deno.test("insert with 1xN associations", () => {
+  const insertUserStatement = insert("user")({
+    email: "user@domain.tld",
+    created_at: now(),
+  }).associate({ user_account: { account_id: 1 } });
+
+  assertEquals(
+    insertUserStatement.toSql(),
+    `WITH "user" AS (INSERT INTO "user"  (email, created_at) VALUES (('user@domain.tld'), (now () ))  RETURNING id ) INSERT INTO user_account  (user_id, account_id) SELECT "user" .id , ('1')  FROM "user"`,
   );
 });
 

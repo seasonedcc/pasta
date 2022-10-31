@@ -6,7 +6,6 @@
     "cli": "deno run --allow-env --allow-net --unstable src/cli.ts",
     "prepublishOnly": "npm run build",
     "build-npm": "deno run -A scripts/build-npm.ts 0.0.1",
-    "preupdate-schema": "npm run build-cli",
-    "update-schema": "./dist/pasta postgres://localhost/pasta_test"
+    "update-schema": "deno task build-cli && ./dist/pasta postgres://localhost/pasta_test"
   }
 }

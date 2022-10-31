@@ -62,10 +62,9 @@ type MxNAssociation = {
 };
 
 type NAssociation = {
-  kind: "MxN";
+  kind: "1xN";
   table: TableName;
-  associativeTable: TableName;
-  fks: Record<string, [string, string]>;
+  fks: Record<string, string>;
 };
 
 type Association =
@@ -86,6 +85,7 @@ export type {
   Tables,
 };
 export { associations };
+
 `;
 }
 
@@ -94,6 +94,7 @@ function generateStatementBuilder() {
 import {
   astMapper,
   Expr,
+  ExprRef,
   From,
   InsertStatement,
   Name,
@@ -110,6 +111,7 @@ import {
   ColumnsOf,
   KeysOf,
   MxNAssociation,
+  NAssociation,
   TableName,
 } from "./schema.ts";
 
@@ -148,7 +150,7 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
 const refExpr = (name: string) => ({ "type": "ref", name }) as Expr;
 
 const columnRef = (table: string, name: string) =>
-  ({ "type": "ref", table: { name: table }, name }) as Expr;
+  ({ "type": "ref", table: { name: table }, name }) as ExprRef;
 
 const stringExpr = (value: string) => ({ "type": "string", value }) as Expr;
 
@@ -213,6 +215,7 @@ function addAssociate<T extends TableName>(
   builder: StatementBuilder<T>,
 ): InsertBuilder<T> {
   const builderWithMxNAssociation = (
+    builder: StatementBuilder<T>,
     association: MxNAssociation,
     associatedValues: Record<string, unknown>,
   ) => {
@@ -228,7 +231,13 @@ function addAssociate<T extends TableName>(
         };
         return previousValue;
       },
-      {} as Record<string, unknown>,
+      {} as Record<string, {
+        "type": "ref";
+        "table": {
+          "name": string;
+        };
+        "name": string;
+      }>,
     );
     const returningFksAssociation = Object.values(fks).filter((
       [fkTable],
@@ -243,9 +252,15 @@ function addAssociate<T extends TableName>(
     const targetAssociationColumns = Object.keys(
       associativeValues,
     ) as string[];
-    const sourceColumns = Object.fromEntries(targetAssociationColumns.map((
+
+    const sourceColumns = targetAssociationColumns.map((
       k,
-    ) => fks[k]));
+    ) => ({
+      expr: columnRef(
+        associativeValues[k].table.name,
+        associativeValues[k].name,
+      ),
+    })) as SelectedColumn[];
 
     const withStatement = insertWith(
       insert(association.table)(
@@ -272,31 +287,89 @@ function addAssociate<T extends TableName>(
     return withStatement as InsertBuilder<T>;
   };
 
+  const builderWith1xNAssociation = (
+    builder: StatementBuilder<T>,
+    association: NAssociation,
+    associatedValues: Record<string, unknown>,
+  ) => {
+    const { fks, table } = association;
+
+    const returningFksAssociation = Object.values(fks);
+
+    const sourceFkColumns = Object.keys(fks).map((
+      k,
+    ) => ({
+      expr: columnRef(
+        builder.table,
+        fks[k],
+      ),
+    })) as SelectedColumn[];
+
+    const sourceValueColumns = Object.keys(associatedValues).map((
+      k,
+    ) => ({
+      expr: stringExpr(
+        String(associatedValues[k]) as string,
+      ),
+    })) as unknown as SelectedColumn[];
+
+    const withStatement = insertWith(
+      builder.returning(
+        returningFksAssociation as ReturningOptions<typeof builder.table>,
+      ),
+    )(
+      insertFrom(table)(
+        [...sourceFkColumns, ...sourceValueColumns],
+        // deno-lint-ignore no-explicit-any
+        [...Object.keys(fks), ...Object.keys(associatedValues)] as any,
+      ),
+    );
+    return withStatement as InsertBuilder<T>;
+  };
+
   const associate = (associationMap: AssociationsOf<T>) => {
     for (
       const [associated, associatedValues] of Object.entries(associationMap)
     ) {
       const association = associations[builder.table]?.[associated];
       if (association?.kind == "MxN") {
-        return builderWithMxNAssociation(association, associatedValues);
+        return builderWithMxNAssociation(
+          builder,
+          association,
+          associatedValues,
+        );
+      } else if (association?.kind == "1xN") {
+        return builderWith1xNAssociation(
+          builder,
+          association,
+          associatedValues,
+        );
       }
     }
   };
   return { ...builder, associate } as InsertBuilder<T>;
 }
 
+function unique(s: string[]) {
+  return Object.keys(Object.fromEntries(s.map((el) => [el, null])));
+}
+
 function insertFrom<T extends TableName>(
   table: T,
 ): (
-  valueMap: Record<string, string>,
+  sourceColumns: SelectedColumn[],
   columns: (keyof ColumnsOf<T>)[],
 ) => InsertBuilder<T> {
-  return function (valueMap, columns) {
-    const sourceColumns = Object.keys(valueMap).map((
-      k,
-    ) => ({ expr: columnRef(k, valueMap[k]) })) as SelectedColumn[];
+  return function (sourceColumns, columns) {
+    const tables = unique(
+      sourceColumns.map((
+        s,
+      ) => ((s.expr as ExprRef)?.table?.name)).filter((t) =>
+        (t ?? "").length > 0
+      ) as string[],
+    );
 
-    const from = Object.keys(valueMap).map((t) => ({
+    const from = tables.map((t) => ({
       "type": "table",
       "name": {
         "name": t,
@@ -310,7 +383,7 @@ function insertFrom<T extends TableName>(
       "into": { "name": table },
       "insert": {
         "type": "select",
-        columns: sourceColumns,
+        columns: Object.values(sourceColumns),
         from,
       },
       columns: targetColumns,
@@ -554,7 +627,6 @@ function select<T extends TableName>(table: T): () => SelectBuilder<T> {
 
 export { insert, insertWith, select, update, upsert };
 export type { InsertBuilder, SeedBuilder, SelectBuilder, StatementBuilder };
-  
 `;
 }
 
