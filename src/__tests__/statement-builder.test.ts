@@ -114,6 +114,7 @@ Deno.test("now", () => {
 
 Deno.test("insert with CTE without references", () => {
   const insertUserStatement = insertWith(
+    "user",
     insert("user")({
       email: "user@domain.tld",
       created_at: now(),

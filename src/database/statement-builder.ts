@@ -25,7 +25,6 @@ import {
 } from "./schema.ts";
 
 type SeedBuilder = {
-  table: TableName;
   statement:
     | SelectStatement
     | InsertStatement
@@ -34,7 +33,6 @@ type SeedBuilder = {
   toSql: () => string;
 };
 
-type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
 type StatementBuilder<T extends TableName> = SeedBuilder & {
   returning: (options: ColumnNamesOf<T>) => StatementBuilder<T>;
 };
@@ -72,7 +70,9 @@ const eqList = (valuesMap: Record<string, unknown>) =>
     expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
   }) as Expr;
 
-function addReturning<T extends TableName>(builder: SeedBuilder) {
+function addReturning<T extends TableName>(
+  builder: SeedBuilder,
+): StatementBuilder<T> {
   const returningMapper = (columnNames: Name[]) =>
     astMapper((_map) => ({
       with: (t) => {
@@ -111,7 +111,6 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
         builder.statement,
       )! as InsertStatement;
     const seedBuilder = {
-      table: builder.table,
       statement: statementWithReturning,
       toSql: () => toSql.statement(statementWithReturning),
     };
@@ -121,9 +120,10 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
 }
 
 function addAssociate<T extends TableName>(
+  table: T,
   builder: StatementBuilder<T>,
 ): InsertBuilder<T> {
-  const builderWithMxNAssociation = (
+  const builderWithMxNAssociation = <T extends TableName>(
     builder: StatementBuilder<T>,
     association: MxNAssociation,
     associatedValues: Record<string, unknown>,
@@ -153,11 +153,6 @@ function addAssociate<T extends TableName>(
     ) => (fkTable == association.table))
       .map(([_, fkColumn]) => (fkColumn));
 
-    const returningFksBuilder = Object.values(fks).filter((
-      [fkTable],
-    ) => (fkTable == builder.table))
-      .map(([_, fkColumn]) => (fkColumn));
-
     const targetAssociationColumns = Object.keys(
       associativeValues,
     ) as string[];
@@ -172,6 +167,7 @@ function addAssociate<T extends TableName>(
     })) as SelectedColumn[];
 
     const withStatement = insertWith(
+      association.table,
       insert(association.table)(
         // deno-lint-ignore no-explicit-any
         associatedValues as any,
@@ -179,11 +175,7 @@ function addAssociate<T extends TableName>(
         returningFksAssociation as ColumnNamesOf<typeof association.table>,
       ),
     )(
-      insertWith(
-        builder.returning(
-          returningFksBuilder as ReturningOptions<typeof builder.table>,
-        ),
-      )(
+      insertWith(table, builder)(
         insertFrom(associativeTable)(
           sourceColumns,
           // deno-lint-ignore no-explicit-any
@@ -191,7 +183,7 @@ function addAssociate<T extends TableName>(
         ),
       ),
     );
-    return withStatement as InsertBuilder<T>;
+    return withStatement as StatementBuilder<T>;
   };
 
   const builderWith1xNAssociation = (
@@ -199,7 +191,7 @@ function addAssociate<T extends TableName>(
     association: NAssociation,
     associatedValues: Record<string, unknown>,
   ) => {
-    const { fks, table } = association;
+    const { fks, table: associedTable } = association;
 
     const returningFksAssociation = Object.values(fks);
 
@@ -207,7 +199,7 @@ function addAssociate<T extends TableName>(
       k,
     ) => ({
       expr: columnRef(
-        builder.table,
+        table,
         fks[k],
       ),
     })) as SelectedColumn[];
@@ -221,40 +213,50 @@ function addAssociate<T extends TableName>(
     })) as unknown as SelectedColumn[];
 
     const withStatement = insertWith(
+      table,
       builder.returning(
         returningFksAssociation as ColumnNamesOf<T>,
       ),
     )(
-      insertFrom(table)(
+      insertFrom(associedTable)(
         [...sourceFkColumns, ...sourceValueColumns],
         // deno-lint-ignore no-explicit-any
         [...Object.keys(fks), ...Object.keys(associatedValues)] as any,
       ),
     );
-    return withStatement as InsertBuilder<T>;
+    return withStatement as StatementBuilder<T>;
   };
 
   const associate = (associationMap: AssociationsOf<T>) => {
-    for (
-      const [associated, associatedValues] of Object.entries(associationMap)
-    ) {
-      const association = associations[builder.table]?.[associated];
-      if (association?.kind == "MxN") {
-        return builderWithMxNAssociation(
-          builder,
-          association,
-          associatedValues,
-        );
-      } else if (association?.kind == "1xN") {
-        return builderWith1xNAssociation(
-          builder,
-          association,
-          associatedValues,
-        );
-      }
-    }
+    const newBuilder = Object.entries(associationMap).reduce(
+      (previous, [associated, associatedValues]) => {
+        const association = associations[table][associated];
+        const pks = association.kind === "1xN"
+          ? Object.values(association.fks)
+          : Object.values(association.fks).filter((
+            [associatedTable, _column],
+          ) => associatedTable === table).map(([_table, column]) => column);
+
+        const returningPks = previous.returning(pks as ColumnNamesOf<T>);
+
+        return association.kind === "1xN"
+          ? builderWith1xNAssociation(
+            returningPks,
+            association,
+            associatedValues,
+          )
+          : builderWithMxNAssociation(
+            returningPks,
+            association,
+            associatedValues,
+          );
+      },
+      builder,
+    );
+
+    return addAssociate(table, newBuilder);
   };
-  return { ...builder, associate } as InsertBuilder<T>;
+  return { ...builder, associate };
 }
 
 function unique(s: string[]) {
@@ -295,11 +297,13 @@ function insertFrom<T extends TableName>(
       },
       columns: targetColumns,
     };
-    return addAssociate<T>(addReturning<T>({
+    return addAssociate<T>(
       table,
-      toSql: () => toSql.statement(statement),
-      statement,
-    }));
+      addReturning<T>({
+        toSql: () => toSql.statement(statement),
+        statement,
+      }),
+    );
   };
 }
 
@@ -331,11 +335,13 @@ function insert<T extends TableName>(
       },
       columns,
     };
-    return addAssociate<T>(addReturning<T>({
+    return addAssociate<T>(
       table,
-      toSql: () => toSql.statement(statement),
-      statement,
-    }));
+      addReturning<T>({
+        toSql: () => toSql.statement(statement),
+        statement,
+      }),
+    );
   };
 }
 
@@ -404,27 +410,31 @@ function update<T extends TableName>(table: T): (
   };
 }
 
-function insertWith<T1 extends TableName>(context: StatementBuilder<T1>) {
-  return function <T2 extends TableName>(insert: StatementBuilder<T2>) {
+function insertWith<T1 extends TableName>(
+  contextTable: T1,
+  context: StatementBuilder<T1>,
+) {
+  return function <T2 extends TableName>(
+    insert: StatementBuilder<T2>,
+  ) {
     const statement: WithStatement = insert.statement.type === "with"
       ? {
         ...insert.statement,
         "bind": [...insert.statement.bind, {
-          "alias": { "name": context.table },
+          "alias": { "name": contextTable },
           "statement": context.statement,
         }],
       }
       : {
         "type": "with",
         "bind": [{
-          "alias": { "name": context.table },
+          "alias": { "name": contextTable },
           "statement": context.statement,
         }],
         "in": insert.statement,
       };
-    const seedBuilder = {
+    const seedBuilder: SeedBuilder = {
       statement,
-      table: insert.table,
       toSql: () => toSql.statement(statement),
     };
 
@@ -454,7 +464,6 @@ function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
         builder.statement,
       )! as SelectStatement;
     const seedBuilder = {
-      table: builder.table,
       statement: statementWithReturning,
       toSql: () => toSql.statement(statementWithReturning),
     };
@@ -480,7 +489,6 @@ function addWhere<T extends TableName>(builder: StatementBuilder<T>) {
         builder.statement,
       )! as SelectStatement;
     const seedBuilder = {
-      table: builder.table,
       statement: statementWithWhere,
       toSql: () => toSql.statement(statementWithWhere),
     };
@@ -506,7 +514,6 @@ function addUnique<T extends TableName>(builder: StatementBuilder<T>) {
         builder.statement,
       )! as SelectStatement;
     const seedBuilder = {
-      table: builder.table,
       statement: statementWithWhere,
       toSql: () => toSql.statement(statementWithWhere),
     };
