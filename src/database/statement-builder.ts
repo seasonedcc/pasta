@@ -16,6 +16,7 @@ import {
 import {
   associations,
   AssociationsOf,
+  ColumnNamesOf,
   ColumnsOf,
   KeysOf,
   MxNAssociation,
@@ -35,7 +36,7 @@ type SeedBuilder = {
 
 type ReturningOptions<T extends TableName> = (keyof ColumnsOf<T>)[];
 type StatementBuilder<T extends TableName> = SeedBuilder & {
-  returning: (options: ReturningOptions<T>) => StatementBuilder<T>;
+  returning: (options: ColumnNamesOf<T>) => StatementBuilder<T>;
 };
 type InsertBuilder<T extends TableName> = StatementBuilder<T> & {
   associate: (associationMap: AssociationsOf<T>) => InsertBuilder<T>;
@@ -100,7 +101,7 @@ function addReturning<T extends TableName>(builder: SeedBuilder) {
     }));
 
   const returning = function (
-    options: ReturningOptions<T>,
+    options: ColumnNamesOf<T>,
   ): StatementBuilder<T> {
     const returningColumns = options.map((c) => ({
       name: c,
@@ -175,9 +176,7 @@ function addAssociate<T extends TableName>(
         // deno-lint-ignore no-explicit-any
         associatedValues as any,
       ).returning(
-        returningFksAssociation as ReturningOptions<
-          typeof association.table
-        >,
+        returningFksAssociation as ColumnNamesOf<typeof association.table>,
       ),
     )(
       insertWith(
@@ -223,7 +222,7 @@ function addAssociate<T extends TableName>(
 
     const withStatement = insertWith(
       builder.returning(
-        returningFksAssociation as ReturningOptions<typeof builder.table>,
+        returningFksAssociation as ColumnNamesOf<T>,
       ),
     )(
       insertFrom(table)(
@@ -445,7 +444,7 @@ function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
     }));
 
   const returning = function (
-    options: ReturningOptions<T>,
+    options: ColumnNamesOf<T>,
   ): StatementBuilder<T> {
     const returningColumns = options.map((c) => ({
       name: c,

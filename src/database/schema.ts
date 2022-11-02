@@ -4,6 +4,7 @@ import { associations } from "./custom-schema.ts";
 
 type KeysOf<T extends TableName> = Tables[T]["keys"];
 type ColumnsOf<T extends TableName> = Tables[T]["columns"];
+type ColumnNamesOf<T extends TableName> = (keyof ColumnsOf<T>)[];
 type AssociationsOf<T extends TableName> = Tables[T]["associations"];
 
 type MxNAssociation = {
@@ -29,6 +30,7 @@ export type {
   Association,
   Associations,
   AssociationsOf,
+  ColumnNamesOf,
   ColumnsOf,
   KeysOf,
   MxNAssociation,
@@ -37,4 +39,3 @@ export type {
   Tables,
 };
 export { associations };
-
