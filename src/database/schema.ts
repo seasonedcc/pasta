@@ -24,7 +24,7 @@ type Association =
   | NAssociation
   | MxNAssociation;
 
-type Associations = Record<TableName, null | Record<string, Association>>;
+type Associations = Record<TableName, Record<string, Association>>;
 
 export type {
   Association,
@@ -39,3 +39,4 @@ export type {
   Tables,
 };
 export { associations };
+

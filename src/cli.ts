@@ -4,8 +4,8 @@ import {
   generateIndex,
   generatePgCatalog,
   generateSchema,
-  generateStatementBuilder,
   generateTransaction,
+  generateTypedStatementBuilder,
 } from "./static-modules-generator.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
@@ -29,8 +29,8 @@ await Promise.all([
     generateSchema(),
   ],
   [
-    `${path}/statement-builder.ts`,
-    generateStatementBuilder(),
+    `${path}/typed-statement-builder.ts`,
+    generateTypedStatementBuilder(),
   ],
   [
     `${path}/transaction.ts`,

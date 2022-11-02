@@ -375,7 +375,7 @@ import {
   InsertBuilder,
   select,
   SelectBuilder,
-} from "./statement-builder.ts";
+} from "./typed-statement-builder.ts";
 
 type TableBuilder<T extends TableName> = {
   select: SelectBuilder<T>;
