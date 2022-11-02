@@ -1,13 +1,12 @@
-
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
-import type { SeedBuilder } from "./statement-builder.ts";
+import type { SqlBuilder } from "./statement-builder.ts";
 
 function connection(uri: string) {
   const sql = postgres(uri);
   return sql;
 }
 
-async function transaction(statement: SeedBuilder) {
+async function transaction(statement: SqlBuilder) {
   const uri = Deno.env.get("DATABASE_URL");
   if (!uri) {
     throw new Error("Please set DATABASE_URL to use database access functions");
@@ -18,7 +17,7 @@ async function transaction(statement: SeedBuilder) {
   return r;
 }
 
-async function transactionReturning(statement: SeedBuilder) {
+async function transactionReturning(statement: SqlBuilder) {
   const r = await transaction(statement);
   if (r.length === 0) {
     throw new Error(

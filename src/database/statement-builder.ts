@@ -24,7 +24,7 @@ import {
   TableName,
 } from "./schema.ts";
 
-type SeedBuilder = {
+type SqlBuilder = {
   statement:
     | SelectStatement
     | InsertStatement
@@ -33,13 +33,13 @@ type SeedBuilder = {
   toSql: () => string;
 };
 
-type StatementBuilder<T extends TableName> = SeedBuilder & {
-  returning: (options: ColumnNamesOf<T>) => StatementBuilder<T>;
+type ReturningBuilder<T extends TableName> = SqlBuilder & {
+  returning: (options: ColumnNamesOf<T>) => ReturningBuilder<T>;
 };
-type InsertBuilder<T extends TableName> = StatementBuilder<T> & {
+type InsertBuilder<T extends TableName> = ReturningBuilder<T> & {
   associate: (associationMap: AssociationsOf<T>) => InsertBuilder<T>;
 };
-type SelectBuilder<T extends TableName> = StatementBuilder<T> & {
+type SelectBuilder<T extends TableName> = ReturningBuilder<T> & {
   where: (whereMap: ColumnsOf<T>) => SelectBuilder<T>;
   unique: (whereMap: KeysOf<T>) => SelectBuilder<T>;
 };
@@ -71,8 +71,8 @@ const eqList = (valuesMap: Record<string, unknown>) =>
   }) as Expr;
 
 function addReturning<T extends TableName>(
-  builder: SeedBuilder,
-): StatementBuilder<T> {
+  builder: SqlBuilder,
+): ReturningBuilder<T> {
   const returningMapper = (columnNames: Name[]) =>
     astMapper((_map) => ({
       with: (t) => {
@@ -102,7 +102,7 @@ function addReturning<T extends TableName>(
 
   const returning = function (
     options: ColumnNamesOf<T>,
-  ): StatementBuilder<T> {
+  ): ReturningBuilder<T> {
     const returningColumns = options.map((c) => ({
       name: c,
     } as Name));
@@ -121,10 +121,10 @@ function addReturning<T extends TableName>(
 
 function addAssociate<T extends TableName>(
   table: T,
-  builder: StatementBuilder<T>,
+  builder: ReturningBuilder<T>,
 ): InsertBuilder<T> {
   const builderWithMxNAssociation = <T extends TableName>(
-    builder: StatementBuilder<T>,
+    builder: ReturningBuilder<T>,
     association: MxNAssociation,
     associatedValues: Record<string, unknown>,
   ) => {
@@ -183,11 +183,11 @@ function addAssociate<T extends TableName>(
         ),
       ),
     );
-    return withStatement as StatementBuilder<T>;
+    return withStatement as ReturningBuilder<T>;
   };
 
   const builderWith1xNAssociation = (
-    builder: StatementBuilder<T>,
+    builder: ReturningBuilder<T>,
     association: NAssociation,
     associatedValues: Record<string, unknown>,
   ) => {
@@ -224,7 +224,7 @@ function addAssociate<T extends TableName>(
         [...Object.keys(fks), ...Object.keys(associatedValues)] as any,
       ),
     );
-    return withStatement as StatementBuilder<T>;
+    return withStatement as ReturningBuilder<T>;
   };
 
   const associate = (associationMap: AssociationsOf<T>) => {
@@ -348,7 +348,7 @@ function insert<T extends TableName>(
 function upsert<T extends TableName>(table: T): (
   insertValues: ColumnsOf<T>,
   updateValues?: ColumnsOf<T>,
-) => StatementBuilder<T> {
+) => ReturningBuilder<T> {
   const onConflictMapper = (conflictValues: Record<string, unknown>) =>
     astMapper((_map) => ({
       insert: (t) => {
@@ -387,7 +387,7 @@ function upsert<T extends TableName>(table: T): (
 function update<T extends TableName>(table: T): (
   keyValues: KeysOf<T>,
   setValues: ColumnsOf<T>,
-) => StatementBuilder<T> {
+) => ReturningBuilder<T> {
   return (keyValues, setValues) => {
     const statement: Statement = {
       "type": "update",
@@ -412,10 +412,10 @@ function update<T extends TableName>(table: T): (
 
 function insertWith<T1 extends TableName>(
   contextTable: T1,
-  context: StatementBuilder<T1>,
+  context: ReturningBuilder<T1>,
 ) {
   return function <T2 extends TableName>(
-    insert: StatementBuilder<T2>,
+    insert: ReturningBuilder<T2>,
   ) {
     const statement: WithStatement = insert.statement.type === "with"
       ? {
@@ -433,7 +433,7 @@ function insertWith<T1 extends TableName>(
         }],
         "in": insert.statement,
       };
-    const seedBuilder: SeedBuilder = {
+    const seedBuilder: SqlBuilder = {
       statement,
       toSql: () => toSql.statement(statement),
     };
@@ -442,7 +442,7 @@ function insertWith<T1 extends TableName>(
   };
 }
 
-function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
+function addSelectReturning<T extends TableName>(builder: SqlBuilder) {
   const returningMapper = (columnNames: Name[]) =>
     astMapper((_map) => ({
       selection: (s) => ({
@@ -455,7 +455,7 @@ function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
 
   const returning = function (
     options: ColumnNamesOf<T>,
-  ): StatementBuilder<T> {
+  ): ReturningBuilder<T> {
     const returningColumns = options.map((c) => ({
       name: c,
     } as Name));
@@ -472,7 +472,7 @@ function addSelectReturning<T extends TableName>(builder: SeedBuilder) {
   return { ...builder, returning };
 }
 
-function addWhere<T extends TableName>(builder: StatementBuilder<T>) {
+function addWhere<T extends TableName>(builder: ReturningBuilder<T>) {
   const whereMapper = (columns: ColumnsOf<T>) =>
     astMapper((_map) => ({
       selection: (s) => ({
@@ -483,7 +483,7 @@ function addWhere<T extends TableName>(builder: StatementBuilder<T>) {
 
   const where = function (
     whereMap: ColumnsOf<T>,
-  ): StatementBuilder<T> {
+  ): ReturningBuilder<T> {
     const statementWithWhere = whereMapper(whereMap)
       .statement(
         builder.statement,
@@ -497,7 +497,7 @@ function addWhere<T extends TableName>(builder: StatementBuilder<T>) {
   return { ...builder, where } as SelectBuilder<T>;
 }
 
-function addUnique<T extends TableName>(builder: StatementBuilder<T>) {
+function addUnique<T extends TableName>(builder: ReturningBuilder<T>) {
   const whereMapper = (columns: KeysOf<T>) =>
     astMapper((_map) => ({
       selection: (s) => ({
@@ -508,7 +508,7 @@ function addUnique<T extends TableName>(builder: StatementBuilder<T>) {
 
   const unique = function (
     whereMap: KeysOf<T>,
-  ): StatementBuilder<T> {
+  ): ReturningBuilder<T> {
     const statementWithWhere = whereMapper(whereMap)
       .statement(
         builder.statement,
@@ -540,4 +540,4 @@ function select<T extends TableName>(table: T): () => SelectBuilder<T> {
 }
 
 export { insert, insertWith, select, update, upsert };
-export type { InsertBuilder, SeedBuilder, SelectBuilder, StatementBuilder };
+export type { InsertBuilder, ReturningBuilder, SelectBuilder, SqlBuilder };
