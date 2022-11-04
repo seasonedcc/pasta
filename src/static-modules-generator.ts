@@ -93,20 +93,6 @@ export { associations };
 function generateTypedStatementBuilder() {
   return `${header()}
 import {
-  astMapper,
-  Expr,
-  ExprRef,
-  From,
-  InsertStatement,
-  Name,
-  SelectedColumn,
-  SelectStatement,
-  Statement,
-  toSql,
-  UpdateStatement,
-  WithStatement,
-} from "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts";
-import {
   associations,
   AssociationsOf,
   ColumnNamesOf,
@@ -117,14 +103,8 @@ import {
   TableName,
 } from "./schema.ts";
 
-type SqlBuilder = {
-  statement:
-    | SelectStatement
-    | InsertStatement
-    | UpdateStatement
-    | WithStatement;
-  toSql: () => string;
-};
+import * as sql from "./sql-builder.ts";
+import type { SqlBuilder } from "./sql-builder.ts";
 
 type ReturningBuilder<T extends TableName> = SqlBuilder & {
   returning: (options: ColumnNamesOf<T>) => ReturningBuilder<T>;
@@ -137,79 +117,42 @@ type SelectBuilder<T extends TableName> = ReturningBuilder<T> & {
   unique: (whereMap: KeysOf<T>) => SelectBuilder<T>;
 };
 
-const binaryOp = (op: string) => (left: Expr, right: Expr) =>
-  (
-    {
-      "type": "binary",
-      left,
-      right,
-      op,
-    }
-  ) as Expr;
-
-const refExpr = (name: string) => ({ "type": "ref", name }) as Expr;
-
-const columnRef = (table: string, name: string) =>
-  ({ "type": "ref", table: { name: table }, name }) as ExprRef;
-
-const stringExpr = (value: string) => ({ "type": "string", value }) as Expr;
-
-const eqList = (valuesMap: Record<string, unknown>) =>
-  binaryOp("=")({
-    type: "list",
-    expressions: Object.keys(valuesMap).map((k) => refExpr(k)),
-  }, {
-    type: "list",
-    expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
-  }) as Expr;
-
-function addReturning<T extends TableName>(
-  builder: SqlBuilder,
-): ReturningBuilder<T> {
-  const returningMapper = (columnNames: Name[]) =>
-    astMapper((_map) => ({
-      with: (t) => {
-        if (t.in.type === "insert") {
-          return {
-            ...t,
-            in: {
-              ...t.in,
-              returning: columnNames.map((c) => ({
-                expr: { type: "ref", name: c.name },
-              })),
-            },
-          };
-        }
-      },
-      insert: (t) => {
-        if (t.insert) {
-          return {
-            ...t,
-            returning: columnNames.map((c) => ({
-              expr: { type: "ref", name: c.name },
-            })),
-          };
-        }
-      },
-    }));
-
-  const returning = function (
-    options: ColumnNamesOf<T>,
-  ): ReturningBuilder<T> {
-    const returningColumns = options.map((c) => ({
-      name: c,
-    } as Name));
-    const statementWithReturning = returningMapper(returningColumns)
-      .statement(
-        builder.statement,
-      )! as InsertStatement;
-    const seedBuilder = {
-      statement: statementWithReturning,
-      toSql: () => toSql.statement(statementWithReturning),
-    };
-    return addReturning(seedBuilder);
+function addReturning<T extends TableName>(builder: SqlBuilder): ReturningBuilder<T> {
+  return {
+    ...builder,
+    returning: function (
+      options: ColumnNamesOf<T>,
+    ): ReturningBuilder<T> {
+      return addReturning(sql.returning(builder, options.map(String)));
+    },
   };
-  return { ...builder, returning };
+}
+
+function addSelectReturning<T extends TableName>(builder: SqlBuilder) {
+  return {
+    ...builder,
+    returning: function (options: ColumnNamesOf<T>): ReturningBuilder<T> {
+      return addSelectReturning(sql.selection(builder, options.map(String)));
+    },
+  };
+}
+
+function addWhere<T extends TableName>(builder: ReturningBuilder<T>) {
+  return {
+    ...builder,
+    where: function (whereMap: ColumnsOf<T>): ReturningBuilder<T> {
+      return addSelectReturning(sql.where(builder, whereMap));
+    },
+  } as SelectBuilder<T>;
+}
+
+function addUnique<T extends TableName>(builder: ReturningBuilder<T>) {
+  return {
+    ...builder,
+    unique: function (whereMap: KeysOf<T>): ReturningBuilder<T> {
+      return addSelectReturning(sql.where(builder, whereMap));
+    },
+  } as SelectBuilder<T>;
 }
 
 function addAssociate<T extends TableName>(
@@ -222,61 +165,28 @@ function addAssociate<T extends TableName>(
     associatedValues: Record<string, unknown>,
   ) => {
     const { fks, associativeTable } = association;
-    const associativeValues = Object.keys(fks).reduce(
-      (previousValue, currentValue) => {
-        previousValue[currentValue] = {
-          "type": "ref",
-          "table": {
-            "name": fks[currentValue][0],
-          },
-          "name": fks[currentValue][1],
-        };
-        return previousValue;
-      },
-      {} as Record<string, {
-        "type": "ref";
-        "table": {
-          "name": string;
-        };
-        "name": string;
-      }>,
-    );
+    const targetAssociationColumns = Object.keys(fks);
+    const sourceColumns = targetAssociationColumns.map((
+      c,
+    ) => (sql.column(...fks[c])));
     const returningFksAssociation = Object.values(fks).filter((
       [fkTable],
     ) => (fkTable == association.table))
       .map(([_, fkColumn]) => (fkColumn));
 
-    const targetAssociationColumns = Object.keys(
-      associativeValues,
-    ) as string[];
-
-    const sourceColumns = targetAssociationColumns.map((
-      k,
-    ) => ({
-      expr: columnRef(
-        associativeValues[k].table.name,
-        associativeValues[k].name,
-      ),
-    })) as SelectedColumn[];
-
-    const withStatement = insertWith(
+    const withStatement = sql.makeInsertWith(
       association.table,
-      insert(association.table)(
-        // deno-lint-ignore no-explicit-any
-        associatedValues as any,
-      ).returning(
-        returningFksAssociation as ColumnNamesOf<typeof association.table>,
+      sql.returning(
+        sql.makeInsert(association.table, associatedValues),
+        returningFksAssociation,
       ),
-    )(
-      insertWith(table, builder)(
-        insertFrom(associativeTable)(
-          sourceColumns,
-          // deno-lint-ignore no-explicit-any
-          targetAssociationColumns as any,
-        ),
+      sql.makeInsertWith(
+        table,
+        builder,
+        sql.makeInsertFrom(associativeTable, sourceColumns, targetAssociationColumns),
       ),
     );
-    return withStatement as ReturningBuilder<T>;
+    return addReturning<T>(withStatement);
   };
 
   const builderWith1xNAssociation = (
@@ -290,34 +200,22 @@ function addAssociate<T extends TableName>(
 
     const sourceFkColumns = Object.keys(fks).map((
       k,
-    ) => ({
-      expr: columnRef(
-        table,
-        fks[k],
-      ),
-    })) as SelectedColumn[];
+    ) => (sql.column(table, fks[k])));
 
     const sourceValueColumns = Object.keys(associatedValues).map((
       k,
-    ) => ({
-      expr: stringExpr(
-        String(associatedValues[k]),
-      ),
-    })) as unknown as SelectedColumn[];
+    ) => (sql.column(String(associatedValues[k]))));
 
-    const withStatement = insertWith(
+    const withStatement = sql.makeInsertWith(
       table,
-      builder.returning(
-        returningFksAssociation as ColumnNamesOf<T>,
-      ),
-    )(
-      insertFrom(associedTable)(
+      sql.returning(builder, returningFksAssociation),
+      sql.makeInsertFrom(
+        associedTable,
         [...sourceFkColumns, ...sourceValueColumns],
-        // deno-lint-ignore no-explicit-any
-        [...Object.keys(fks), ...Object.keys(associatedValues)] as any,
+        [...Object.keys(fks), ...Object.keys(associatedValues)],
       ),
     );
-    return withStatement as ReturningBuilder<T>;
+    return addReturning<T>(withStatement);
   };
 
   const associate = (associationMap: AssociationsOf<T>) => {
@@ -333,16 +231,8 @@ function addAssociate<T extends TableName>(
         const returningPks = previous.returning(pks as ColumnNamesOf<T>);
 
         return association.kind === "1xN"
-          ? builderWith1xNAssociation(
-            returningPks,
-            association,
-            associatedValues,
-          )
-          : builderWithMxNAssociation(
-            returningPks,
-            association,
-            associatedValues,
-          );
+          ? builderWith1xNAssociation(returningPks, association, associatedValues)
+          : builderWithMxNAssociation(returningPks, association, associatedValues);
       },
       builder,
     );
@@ -352,284 +242,41 @@ function addAssociate<T extends TableName>(
   return { ...builder, associate };
 }
 
-function unique(s: string[]) {
-  return Object.keys(Object.fromEntries(s.map((el) => [el, null])));
-}
+// Public functions
 
-function insertFrom<T extends TableName>(
-  table: T,
-): (
-  sourceColumns: SelectedColumn[],
-  columns: (keyof ColumnsOf<T>)[],
-) => InsertBuilder<T> {
-  return function (sourceColumns, columns) {
-    const tables = unique(
-      sourceColumns.map((
-        s,
-      ) => ((s.expr as ExprRef)?.table?.name)).filter((t) =>
-        (t ?? "").length > 0
-      ) as string[],
-    );
-
-    const from = tables.map((t) => ({
-      "type": "table",
-      "name": {
-        "name": t,
-      },
-    })) as From[];
-
-    const targetColumns = columns.map((c) => ({ name: c })) as Name[];
-
-    const statement: InsertStatement = {
-      "type": "insert",
-      "into": { "name": table },
-      "insert": {
-        "type": "select",
-        columns: Object.values(sourceColumns),
-        from,
-      },
-      columns: targetColumns,
-    };
-    return addAssociate<T>(
-      table,
-      addReturning<T>({
-        toSql: () => toSql.statement(statement),
-        statement,
-      }),
-    );
-  };
-}
-
-function insert<T extends TableName>(
-  table: T,
-): (
-  valueMap: ColumnsOf<T>,
-) => InsertBuilder<T> {
+function insert<T extends TableName>(table: T): (valueMap: ColumnsOf<T>) => InsertBuilder<T> {
   return function (valueMap) {
-    const columns = Object.keys(valueMap).map((k) => ({ name: k }));
-    const values = [
-      Object.values(valueMap).map((
-        value,
-      ) => (typeof value === "string"
-        ? { value, type: "string" }
-        : (typeof value === "object" && value !== null &&
-            ("returnType" in value ||
-              ("type" in value && value["type"] == "ref")))
-        ? value
-        : { value: JSON.stringify(value), type: "string" })
-      ),
-    ] as Expr[][];
-    const statement: InsertStatement = {
-      "type": "insert",
-      "into": { "name": table },
-      "insert": {
-        "type": "values",
-        values,
-      },
-      columns,
-    };
     return addAssociate<T>(
       table,
-      addReturning<T>({
-        toSql: () => toSql.statement(statement),
-        statement,
-      }),
+      addReturning<T>(sql.makeInsert(table, valueMap)),
     );
   };
 }
 
-function upsert<T extends TableName>(table: T): (
-  insertValues: ColumnsOf<T>,
-  updateValues?: ColumnsOf<T>,
-) => ReturningBuilder<T> {
-  const onConflictMapper = (conflictValues: Record<string, unknown>) =>
-    astMapper((_map) => ({
-      insert: (t) => {
-        if (t.insert) {
-          return {
-            ...t,
-            onConflict: {
-              "do": {
-                "sets": Object.keys(conflictValues).map((k) => ({
-                  "column": { "name": k },
-                  "value": {
-                    "type": "string",
-                    "value": String(conflictValues[k]),
-                  },
-                })),
-              },
-            },
-          };
-        }
-      },
-    }));
-
-  return (insertValues, updateValues) => {
-    const { statement } = insert(table)(insertValues);
-    const withOnConflict = onConflictMapper(updateValues || insertValues)
-      .statement(statement)! as InsertStatement;
-    const seedBuilder = {
-      table,
-      toSql: () => toSql.statement(statement),
-      statement: withOnConflict,
-    };
-    return addReturning(seedBuilder);
-  };
+function upsert<T extends TableName>(
+  table: T,
+): (insertValues: ColumnsOf<T>, updateValues?: ColumnsOf<T>) => ReturningBuilder<T> {
+  return (insertValues, updateValues) =>
+    addReturning(sql.makeUpsert(table, insertValues, updateValues));
 }
 
-function update<T extends TableName>(table: T): (
-  keyValues: KeysOf<T>,
-  setValues: ColumnsOf<T>,
-) => ReturningBuilder<T> {
-  return (keyValues, setValues) => {
-    const statement: Statement = {
-      "type": "update",
-      "table": { "name": table },
-      "sets": Object.keys(setValues).map((k) => ({
-        "column": { "name": k },
-        "value": {
-          "type": "string",
-          "value": String((setValues as Record<string, unknown>)[k]),
-        },
-      })),
-      "where": eqList(keyValues),
-    };
-    const seedBuilder = {
-      table,
-      statement,
-      toSql: () => toSql.statement(statement),
-    };
-    return addReturning(seedBuilder);
-  };
+function update<T extends TableName>(
+  table: T,
+): (keyValues: KeysOf<T>, setValues: ColumnsOf<T>) => ReturningBuilder<T> {
+  return (keyValues, setValues) =>
+    addReturning(sql.makeUpdate(table, keyValues, setValues));
 }
 
-function insertWith<T1 extends TableName>(
-  contextTable: T1,
-  context: ReturningBuilder<T1>,
-) {
-  return function <T2 extends TableName>(
-    insert: ReturningBuilder<T2>,
-  ) {
-    const statement: WithStatement = insert.statement.type === "with"
-      ? {
-        ...insert.statement,
-        "bind": [...insert.statement.bind, {
-          "alias": { "name": contextTable },
-          "statement": context.statement,
-        }],
-      }
-      : {
-        "type": "with",
-        "bind": [{
-          "alias": { "name": contextTable },
-          "statement": context.statement,
-        }],
-        "in": insert.statement,
-      };
-    const seedBuilder: SqlBuilder = {
-      statement,
-      toSql: () => toSql.statement(statement),
-    };
-
-    return addReturning<T2>(seedBuilder);
+function insertWith<T1 extends TableName>(contextTable: T1, context: ReturningBuilder<T1>) {
+  return function <T2 extends TableName>(insert: ReturningBuilder<T2>) {
+    return addReturning<T2>(
+      sql.makeInsertWith(contextTable, context, insert),
+    );
   };
-}
-
-function addSelectReturning<T extends TableName>(builder: SqlBuilder) {
-  const returningMapper = (columnNames: Name[]) =>
-    astMapper((_map) => ({
-      selection: (s) => ({
-        ...s,
-        columns: columnNames.map((c) => ({
-          expr: { type: "ref", name: c.name },
-        })),
-      }),
-    }));
-
-  const returning = function (
-    options: ColumnNamesOf<T>,
-  ): ReturningBuilder<T> {
-    const returningColumns = options.map((c) => ({
-      name: c,
-    } as Name));
-    const statementWithReturning = returningMapper(returningColumns)
-      .statement(
-        builder.statement,
-      )! as SelectStatement;
-    const seedBuilder = {
-      statement: statementWithReturning,
-      toSql: () => toSql.statement(statementWithReturning),
-    };
-    return addSelectReturning(seedBuilder);
-  };
-  return { ...builder, returning };
-}
-
-function addWhere<T extends TableName>(builder: ReturningBuilder<T>) {
-  const whereMapper = (columns: ColumnsOf<T>) =>
-    astMapper((_map) => ({
-      selection: (s) => ({
-        ...s,
-        where: eqList(columns),
-      }),
-    }));
-
-  const where = function (
-    whereMap: ColumnsOf<T>,
-  ): ReturningBuilder<T> {
-    const statementWithWhere = whereMapper(whereMap)
-      .statement(
-        builder.statement,
-      )! as SelectStatement;
-    const seedBuilder = {
-      statement: statementWithWhere,
-      toSql: () => toSql.statement(statementWithWhere),
-    };
-    return addSelectReturning(seedBuilder);
-  };
-  return { ...builder, where } as SelectBuilder<T>;
-}
-
-function addUnique<T extends TableName>(builder: ReturningBuilder<T>) {
-  const whereMapper = (columns: KeysOf<T>) =>
-    astMapper((_map) => ({
-      selection: (s) => ({
-        ...s,
-        where: eqList(columns),
-      }),
-    }));
-
-  const unique = function (
-    whereMap: KeysOf<T>,
-  ): ReturningBuilder<T> {
-    const statementWithWhere = whereMapper(whereMap)
-      .statement(
-        builder.statement,
-      )! as SelectStatement;
-    const seedBuilder = {
-      statement: statementWithWhere,
-      toSql: () => toSql.statement(statementWithWhere),
-    };
-    return addSelectReturning(seedBuilder);
-  };
-  return { ...builder, unique } as SelectBuilder<T>;
 }
 
 function select<T extends TableName>(table: T): () => SelectBuilder<T> {
-  return function () {
-    const statement: Statement = {
-      "columns": [],
-      "from": [{ "type": "table", "name": { "name": table } }],
-      "type": "select",
-    };
-    const seedBuilder = {
-      statement,
-      table: table,
-      toSql: () => toSql.statement(statement),
-    };
-
-    return addUnique<T>(addWhere<T>(addSelectReturning<T>(seedBuilder)));
-  };
+  return () => addUnique<T>(addWhere<T>(addSelectReturning<T>(sql.makeSelect(table))));
 }
 
 export { insert, insertWith, select, update, upsert };
@@ -685,10 +332,343 @@ export { functions } from "./pg-catalog.ts";
 `;
 }
 
+function generateSqlBuilder() {
+  return `${header()}
+import {
+  astMapper,
+  Expr,
+  ExprRef,
+  ExprString,
+  From,
+  InsertStatement,
+  Name,
+  SelectedColumn,
+  SelectStatement,
+  Statement,
+  toSql,
+  UpdateStatement,
+  WithStatement,
+} from "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts";
+
+type SqlBuilder = {
+  statement:
+    | SelectStatement
+    | InsertStatement
+    | UpdateStatement
+    | WithStatement;
+  toSql: () => string;
+};
+
+function returning(builder: SqlBuilder, columns: string[]): SqlBuilder {
+  const returningMapper = (columnNames: string[]) =>
+    astMapper((_map) => ({
+      with: (t) => {
+        if (t.in.type === "insert") {
+          return {
+            ...t,
+            in: {
+              ...t.in,
+              returning: columnNames.map((c) => ({
+                expr: { type: "ref", name: c },
+              })),
+            },
+          };
+        }
+      },
+      insert: (t) => {
+        if (t.insert) {
+          return {
+            ...t,
+            returning: columnNames.map((c) => ({
+              expr: { type: "ref", name: c },
+            })),
+          };
+        }
+      },
+    }));
+  const statementWithReturning = returningMapper(columns)
+    .statement(
+      builder.statement,
+    ) as InsertStatement;
+  return {
+    statement: statementWithReturning,
+    toSql: () => toSql.statement(statementWithReturning),
+  };
+}
+
+const binaryOp = (op: string) => (left: Expr, right: Expr) =>
+  (
+    {
+      "type": "binary",
+      left,
+      right,
+      op,
+    }
+  ) as Expr;
+
+function refExpr(name: string): ExprRef {
+  return { "type": "ref", name };
+}
+
+function columnRef(table: string, name: string): ExprRef {
+  return { table: { name: table }, ...refExpr(name) };
+}
+
+function stringExpr(value: string): ExprString {
+  return { "type": "string", value };
+}
+
+const eqList = (valuesMap: Record<string, unknown>) =>
+  binaryOp("=")({
+    type: "list",
+    expressions: Object.keys(valuesMap).map((k) => refExpr(k)),
+  }, {
+    type: "list",
+    expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
+  }) as Expr;
+
+function makeUpdate(
+  table: string,
+  keyValues: Record<string, unknown>,
+  setValues: Record<string, unknown>,
+): SqlBuilder {
+  const statement: Statement = {
+    "type": "update",
+    "table": { "name": table },
+    "sets": Object.keys(setValues).map((k) => ({
+      "column": { "name": k },
+      "value": {
+        "type": "string",
+        "value": String(setValues[k]),
+      },
+    })),
+    "where": eqList(keyValues),
+  };
+  return {
+    statement,
+    toSql: () => toSql.statement(statement),
+  };
+}
+
+function where(builder: SqlBuilder, columns: Record<string, unknown>) {
+  const whereMapper = (columns: Record<string, unknown>) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        where: eqList(columns),
+      }),
+    }));
+
+  const statementWithWhere = whereMapper(columns)
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithWhere,
+    toSql: () => toSql.statement(statementWithWhere),
+  };
+}
+
+function makeSelect(table: string): SqlBuilder {
+  const statement: Statement = {
+    "columns": [],
+    "from": [{ "type": "table", "name": { "name": table } }],
+    "type": "select",
+  };
+
+  return {
+    statement,
+    toSql: () => toSql.statement(statement),
+  };
+}
+
+function selection(builder: SqlBuilder, columns: string[]): SqlBuilder {
+  const returningMapper = (columnNames: string[]) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        columns: columnNames.map((c) => ({
+          expr: { type: "ref", name: c },
+        })),
+      }),
+    }));
+
+  const statementWithReturning = returningMapper(columns)
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithReturning,
+    toSql: () => toSql.statement(statementWithReturning),
+  };
+}
+
+function makeInsert(
+  table: string,
+  valueMap: Record<string, unknown>,
+): SqlBuilder {
+  const columns = Object.keys(valueMap).map((k) => ({ name: k }));
+  const values = [
+    Object.values(valueMap).map((
+      value,
+    ) => (typeof value === "string"
+      ? { value, type: "string" }
+      : (typeof value === "object" && value !== null &&
+          ("returnType" in value ||
+            ("type" in value &&
+              (value as Record<string, unknown>)["type"] == "ref")))
+      ? value
+      : { value: JSON.stringify(value), type: "string" })
+    ),
+  ] as Expr[][];
+  const statement: InsertStatement = {
+    "type": "insert",
+    "into": { "name": table },
+    "insert": {
+      "type": "values",
+      values,
+    },
+    columns,
+  };
+  return {
+    toSql: () => toSql.statement(statement),
+    statement,
+  };
+}
+
+function makeInsertFrom(
+  table: string,
+  sourceColumns: SelectedColumn[],
+  columns: string[],
+): SqlBuilder {
+  function unique(s: string[]) {
+    return Object.keys(Object.fromEntries(s.map((el) => [el, null])));
+  }
+
+  const tables = unique(
+    sourceColumns.map((
+      s,
+    ) => ((s.expr as ExprRef)?.table?.name)).filter((t) => (t ?? "").length > 0).map(String),
+  );
+
+  const from: From[] = tables.map((t) => ({
+    "type": "table",
+    "name": {
+      "name": t,
+    },
+  }));
+
+  const targetColumns: Name[] = columns.map((c) => ({ name: c }));
+
+  const statement: InsertStatement = {
+    "type": "insert",
+    "into": { "name": table },
+    "insert": {
+      "type": "select",
+      columns: Object.values(sourceColumns),
+      from,
+    },
+    columns: targetColumns,
+  };
+  return {
+    toSql: () => toSql.statement(statement),
+    statement,
+  };
+}
+
+function makeInsertWith(
+  contextTable: string,
+  context: SqlBuilder,
+  insert: SqlBuilder,
+): SqlBuilder {
+  const statement: WithStatement = insert.statement.type === "with"
+    ? {
+      ...insert.statement,
+      "bind": [...insert.statement.bind, {
+        "alias": { "name": contextTable },
+        "statement": context.statement,
+      }],
+    }
+    : {
+      "type": "with",
+      "bind": [{
+        "alias": { "name": contextTable },
+        "statement": context.statement,
+      }],
+      "in": insert.statement,
+    };
+  return {
+    statement,
+    toSql: () => toSql.statement(statement),
+  };
+}
+
+function makeUpsert(
+  table: string,
+  insertValues: Record<string, unknown>,
+  updateValues?: Record<string, unknown>,
+): SqlBuilder {
+  const onConflictMapper = (conflictValues: Record<string, unknown>) =>
+    astMapper((_map) => ({
+      insert: (t) => {
+        if (t.insert) {
+          return {
+            ...t,
+            onConflict: {
+              "do": {
+                "sets": Object.keys(conflictValues).map((k) => ({
+                  "column": { "name": k },
+                  "value": {
+                    "type": "string",
+                    "value": String(conflictValues[k]),
+                  },
+                })),
+              },
+            },
+          };
+        }
+      },
+    }));
+
+  const { statement } = makeInsert(table, insertValues);
+  const withOnConflict = onConflictMapper(updateValues || insertValues)
+    .statement(statement)! as InsertStatement;
+  return {
+    toSql: () => toSql.statement(statement),
+    statement: withOnConflict,
+  };
+}
+
+function column(table: string, name: string): SelectedColumn;
+function column(literal: string): SelectedColumn;
+function column(tableOrValue: string, name?: string): SelectedColumn {
+  if (name) {
+    return { expr: columnRef(tableOrValue, name) };
+  } else {
+    return { expr: stringExpr(tableOrValue) };
+  }
+}
+
+export {
+  column,
+  makeInsert,
+  makeInsertFrom,
+  makeInsertWith,
+  makeSelect,
+  makeUpdate,
+  makeUpsert,
+  returning,
+  selection,
+  where,
+};
+export type { SqlBuilder };
+`;
+}
 export {
   generateIndex,
   generatePgCatalog,
   generateSchema,
+  generateSqlBuilder,
   generateTransaction,
   generateTypedStatementBuilder,
 };

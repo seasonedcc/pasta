@@ -4,6 +4,7 @@ import {
   generateIndex,
   generatePgCatalog,
   generateSchema,
+  generateSqlBuilder,
   generateTransaction,
   generateTypedStatementBuilder,
 } from "./static-modules-generator.ts";
@@ -43,6 +44,10 @@ await Promise.all([
   [
     `${path}/builders.ts`,
     await extractBuilders(sql),
+  ],
+  [
+    `${path}/sql-builder.ts`,
+    generateSqlBuilder(),
   ],
 ].map(([path, content]) => Deno.writeTextFile(path, content)));
 
