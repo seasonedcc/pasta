@@ -4,8 +4,9 @@ import {
   generateIndex,
   generatePgCatalog,
   generateSchema,
-  generateStatementBuilder,
+  generateSqlBuilder,
   generateTransaction,
+  generateTypedStatementBuilder,
 } from "./static-modules-generator.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
 
@@ -29,8 +30,8 @@ await Promise.all([
     generateSchema(),
   ],
   [
-    `${path}/statement-builder.ts`,
-    generateStatementBuilder(),
+    `${path}/typed-statement-builder.ts`,
+    generateTypedStatementBuilder(),
   ],
   [
     `${path}/transaction.ts`,
@@ -43,6 +44,10 @@ await Promise.all([
   [
     `${path}/builders.ts`,
     await extractBuilders(sql),
+  ],
+  [
+    `${path}/sql-builder.ts`,
+    generateSqlBuilder(),
   ],
 ].map(([path, content]) => Deno.writeTextFile(path, content)));
 

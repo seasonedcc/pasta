@@ -7,7 +7,7 @@ import {
   select,
   update,
   upsert,
-} from "../database/statement-builder.ts";
+} from "../database/typed-statement-builder.ts";
 
 Deno.test("insert", () => {
   const insertUserStatement = insert("user")({ email: "user@domain.tld" })
@@ -114,6 +114,7 @@ Deno.test("now", () => {
 
 Deno.test("insert with CTE without references", () => {
   const insertUserStatement = insertWith(
+    "user",
     insert("user")({
       email: "user@domain.tld",
       created_at: now(),

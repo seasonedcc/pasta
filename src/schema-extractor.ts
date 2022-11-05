@@ -324,7 +324,7 @@ type Association =
   associativeTable: TableName;
   fks: Record<string, [string, string]>;
 };
-type Associations = Record<TableName, null | Record<string, Association>>;
+type Associations = Record<TableName, Record<string, Association>>;
 
 const associations: Associations = {
   ${associations}
@@ -375,7 +375,7 @@ import {
   InsertBuilder,
   select,
   SelectBuilder,
-} from "./statement-builder.ts";
+} from "./typed-statement-builder.ts";
 
 type TableBuilder<T extends TableName> = {
   select: SelectBuilder<T>;
