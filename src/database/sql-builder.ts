@@ -134,10 +134,10 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
   };
 }
 
-function makeSelect(table: string): SqlBuilder {
+function makeSelect(table: string, schema?: string): SqlBuilder {
   const statement: Statement = {
     "columns": [],
-    "from": [{ "type": "table", "name": { "name": table } }],
+    "from": [{ "type": "table", "name": { "name": table, schema } }],
     "type": "select",
   };
 
