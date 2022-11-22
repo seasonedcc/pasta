@@ -4,40 +4,38 @@ function header() {
 
 function generatePgCatalog() {
   return `${header()}
-import { ExprCall } from "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts";
-
-type UUIDFunctionCall = ExprCall & { returnType: "uuid" };
-type TimestampFunctionCall = ExprCall & { returnType: "timestamp" };
+type UUIDFunctionCall = { returnType: "uuid" };
+type TimestampFunctionCall = { returnType: "timestamp" };
 type JSONValue =
-| string
-| number
-| boolean
-| { [x: string]: JSONValue }
-| Array<JSONValue>;
+  | string
+  | number
+  | boolean
+  | { [x: string]: JSONValue }
+  | Array<JSONValue>;
 
 function uuid() {
-return {
-  "type": "call",
-  "function": { "name": "gen_random_uuid" },
-  "args": [],
-  "returnType": "uuid",
-} as UUIDFunctionCall;
+  return {
+    "type": "call",
+    "function": { "name": "gen_random_uuid" },
+    "args": [],
+    "returnType": "uuid",
+  } as UUIDFunctionCall;
 }
 
 function now() {
-return (
-  {
-    "type": "call",
-    "function": { "name": "now" },
-    "args": [],
-    "returnType": "timestamp",
-  } as TimestampFunctionCall
-);
+  return (
+    {
+      "type": "call",
+      "function": { "name": "now" },
+      "args": [],
+      "returnType": "timestamp",
+    } as TimestampFunctionCall
+  );
 }
 
 const functions = {
-now,
-uuid,
+  now,
+  uuid,
 };
 export type { JSONValue, TimestampFunctionCall };
 export { functions, now, uuid };
