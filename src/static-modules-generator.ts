@@ -283,9 +283,7 @@ export type { InsertBuilder, ReturningBuilder, SelectBuilder };
 
 function generateIndex(pastaLib: string) {
   return `${header()}
-import { transaction } from "${pastaLib}";
-const { db } = transaction;
-export { db };
+export { db } from "${pastaLib}";
 export { tables } from "./builders.ts";
 export { functions } from "./pg-catalog.ts";
 `;

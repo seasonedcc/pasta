@@ -1,4 +1,5 @@
-import { db, functions, tables } from "../database/index.ts";
+import { functions, tables } from "../database/index.ts";
+import { db } from "../database/index.ts";
 import { assertExists, withTestDatabase } from "./prelude.ts";
 
 const { user } = tables;
