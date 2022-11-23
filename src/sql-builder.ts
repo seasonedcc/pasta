@@ -200,6 +200,8 @@ function makeInsert(
             ("type" in value &&
               (value as Record<string, unknown>)["type"] == "ref")))
       ? value
+      : value === undefined
+      ? { type: 'default' }
       : { value: JSON.stringify(value), type: "string" })
     ),
   ] as Expr[][];

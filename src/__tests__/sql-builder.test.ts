@@ -21,6 +21,14 @@ Deno.test(
 );
 
 Deno.test(
+  "INSERT",
+  () => {
+    const statement = sql.makeInsert("some_table", { id: undefined, data: 'test' });
+    assertEquals(statement.toSql(), "INSERT INTO some_table  (id, data) VALUES (( DEFAULT ), ('test'))");
+  },
+);
+
+Deno.test(
   "DELETE",
   () => {
     const statement = sql.makeDelete("some_table", { id: 1 });
