@@ -1,5 +1,5 @@
-// ex. scripts/build_npm.ts
 import { build, emptyDir } from "https://deno.land/x/dnt@0.25.2/mod.ts";
+import pkg from '../deno.json' assert { type: 'json' }
 
 await emptyDir("./npm");
 
@@ -24,9 +24,9 @@ await build({
   },
   package: {
     // package.json properties
-    name: "pasta",
-    version: Deno.args[0],
-    description: "Your package.",
+    name: "ts-pasta",
+    version: pkg.version,
+    description: "TypeScript PostgreSQL Abstract Syntax Tree Assembler",
     license: "MIT",
     dependencies: {
       "postgres": "3.2.4",
