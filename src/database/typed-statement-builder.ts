@@ -10,10 +10,9 @@ import {
   TableName,
 } from "./schema.ts";
 
-import * as sql from "./sql-builder.ts";
-import type { SqlBuilder } from "./sql-builder.ts";
+import { sql } from "https://deno.land/x/pasta/mod.js";
 
-type ReturningBuilder<T extends TableName> = SqlBuilder & {
+type ReturningBuilder<T extends TableName> = sql.SqlBuilder & {
   returning: (options: ColumnNamesOf<T>) => ReturningBuilder<T>;
 };
 type InsertBuilder<T extends TableName> = ReturningBuilder<T> & {
@@ -24,7 +23,7 @@ type SelectBuilder<T extends TableName> = ReturningBuilder<T> & {
   unique: (whereMap: KeysOf<T>) => SelectBuilder<T>;
 };
 
-function addReturning<T extends TableName>(builder: SqlBuilder): ReturningBuilder<T> {
+function addReturning<T extends TableName>(builder: sql.SqlBuilder): ReturningBuilder<T> {
   return {
     ...builder,
     returning: function (
@@ -35,7 +34,7 @@ function addReturning<T extends TableName>(builder: SqlBuilder): ReturningBuilde
   };
 }
 
-function addSelectReturning<T extends TableName>(builder: SqlBuilder) {
+function addSelectReturning<T extends TableName>(builder: sql.SqlBuilder) {
   return {
     ...builder,
     returning: function (options: ColumnNamesOf<T>): ReturningBuilder<T> {
@@ -187,4 +186,4 @@ function select<T extends TableName>(table: T): () => SelectBuilder<T> {
 }
 
 export { insert, insertWith, select, update, upsert };
-export type { InsertBuilder, ReturningBuilder, SelectBuilder, SqlBuilder };
+export type { InsertBuilder, ReturningBuilder, SelectBuilder };

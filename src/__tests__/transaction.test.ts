@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects, withTestDatabase } from "./prelude.ts";
 import { insert } from "../database/typed-statement-builder.ts";
-import { transaction, transactionReturning } from "../database/transaction.ts";
+import { transaction, transactionReturning } from "../transaction.ts";
 
 Deno.test(
   "transaction - insert",

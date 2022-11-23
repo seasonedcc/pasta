@@ -1,4 +1,4 @@
-import * as sql from "../database/sql-builder.ts";
+import * as sql from "../sql-builder.ts";
 import { assertEquals } from "./prelude.ts";
 
 Deno.test(
