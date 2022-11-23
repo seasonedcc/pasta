@@ -18,7 +18,7 @@ const replaceStringsForNode = (content: string) =>
     )
     : content;
 
-const pastaLib = node ? "pasta" : "https://deno.land/x/pasta/mod.js";
+const pastaLib = node ? "pasta" : "https://deno.land/x/pasta/mod.ts";
 
 const sql = postgres(`${connectionUrl}`);
 
