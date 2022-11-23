@@ -1,5 +1,5 @@
 {
-  "version": "0.0.4",
+  "version": "0.0.5",
   "tasks": {
     "test": "deno test --allow-env --allow-net --allow-read --unstable src",
     "build": "deno bundle src/index.ts dist/index.min.js",
