@@ -3,6 +3,7 @@
     "test": "deno test --allow-env --allow-net --allow-read --unstable src",
     "build": "deno bundle src/index.ts dist/index.min.js",
     "build-cli": "deno compile --allow-env --allow-net --allow-write --unstable --output=dist/pasta src/cli.ts",
+    "install": "deno task build-cli && cp ./dist/pasta $HOME/.local/bin/",
     "cli": "deno run --allow-env --allow-net --unstable src/cli.ts",
     "prepublishOnly": "npm run build",
     "build-npm": "deno run -A scripts/build-npm.ts 0.0.1",
