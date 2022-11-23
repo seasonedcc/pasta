@@ -7,6 +7,7 @@ import {
   generateTypedStatementBuilder,
 } from "./static-modules-generator.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.2.4/mod.js";
+import pkg from '../deno.json' assert { type: 'json' }
 
 const { "_": connectionUrl, node } = parse(Deno.args, { boolean: ["node"] });
 
@@ -18,7 +19,7 @@ const replaceStringsForNode = (content: string) =>
     )
     : content;
 
-const pastaLib = node ? "pasta" : "https://deno.land/x/pasta/mod.ts";
+const pastaLib = node ? "pasta" : `https://deno.land/x/pasta@${pkg.version}/mod.ts`;
 
 const sql = postgres(`${connectionUrl}`);
 
