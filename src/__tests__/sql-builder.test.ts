@@ -8,7 +8,7 @@ Deno.test(
     assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables");
   },
 );
-// SELECT table_name as name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' order by table_name;
+
 Deno.test(
   "Select columns",
   () => {
@@ -17,5 +17,13 @@ Deno.test(
       ["table_name"],
     );
     assertEquals(statement.toSql(), "SELECT table_name  FROM information_schema.tables");
+  },
+);
+
+Deno.test(
+  "DELETE",
+  () => {
+    const statement = sql.makeDelete("some_table", { id: 1 });
+    assertEquals(statement.toSql(), "DELETE FROM some_table   WHERE ((id) = (('1')))");
   },
 );
