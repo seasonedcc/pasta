@@ -15,11 +15,11 @@ await build({
   mappings: {
     "https://deno.land/x/postgresjs@v3.2.4/mod.js": {
       name: "postgres",
-      version: "^3.2.4",
+      version: "3.2.4",
     },
     "https://deno.land/x/pgsql_ast_parser@11.0.0/mod.ts": {
       name: "pgsql-ast-parser",
-      version: "^10.2.0",
+      version: "11.0.0",
     },
   },
   package: {
@@ -28,6 +28,10 @@ await build({
     version: Deno.args[0],
     description: "Your package.",
     license: "MIT",
+    dependencies: {
+      "postgres": "3.2.4",
+      "pgsql-ast-parser": "11.0.0"
+    }
   },
 });
 
