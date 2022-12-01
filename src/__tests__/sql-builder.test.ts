@@ -2,13 +2,19 @@ import * as sql from "../sql-builder.ts";
 import { assertEquals } from "./prelude.ts";
 
 Deno.test(
-  "Sanitize identifiers",
+  "Sanitize SELECT identifiers",
   () => {
-    const statement = sql.selection(sql.makeSelect(
-      'tables"; DROP SCHEMA public CASCADE; -- ',
-      'information_schema";',
-    ), ['column", (SELECT count(*) FROM pg_class) as "injected']);
-    assertEquals(statement.toSql(), 'SELECT "column"", (SELECT count(*) FROM pg_class) as ""injected"  FROM "information_schema"";"."tables""; DROP SCHEMA public CASCADE; -- "');
+    const statement = sql.selection(
+      sql.makeSelect(
+        'tables"; DROP SCHEMA public CASCADE; -- ',
+        'information_schema";',
+      ),
+      ['column", (SELECT count(*) FROM pg_class) as "injected'],
+    );
+    assertEquals(
+      statement.toSql(),
+      'SELECT "column"", (SELECT count(*) FROM pg_class) as ""injected"  FROM "information_schema"";"."tables""; DROP SCHEMA public CASCADE; -- "',
+    );
   },
 );
 
@@ -28,6 +34,28 @@ Deno.test(
       ["table_name"],
     );
     assertEquals(statement.toSql(), "SELECT table_name  FROM information_schema.tables");
+  },
+);
+
+Deno.test(
+  "Sanitize UPDATE identifiers and values",
+  () => {
+    const statement = sql.makeUpdate('some_table" SET field = true;--', { "id\",injected": 1, compositeKey: 2 }, { "data\",injected": "test', another = true" });
+    assertEquals(
+      statement.toSql(),
+      "UPDATE \"some_table\"\" SET field = true;--\"   SET \"data\"\",injected\" = ('test'', another = true')  WHERE ((\"id\"\",injected\", \"compositeKey\") = (('1'), ('2')))",
+    );
+  },
+);
+
+Deno.test(
+  "UPDATE",
+  () => {
+    const statement = sql.makeUpdate("some_table", { id: 1, compositeKey: 2 }, { data: "test" });
+    assertEquals(
+      statement.toSql(),
+      "UPDATE some_table   SET data = ('test')  WHERE ((id, \"compositeKey\") = (('1'), ('2')))",
+    );
   },
 );
 

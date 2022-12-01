@@ -110,9 +110,9 @@ function makeUpdate(
 ): SqlBuilder {
   const statement: Statement = {
     "type": "update",
-    "table": { "name": table },
+    "table": qualifiedName(table),
     "sets": Object.keys(setValues).map((k) => ({
-      "column": { "name": k },
+      "column": qualifiedName(k),
       "value": {
         "type": "string",
         "value": String(setValues[k]),
