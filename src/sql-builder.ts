@@ -8,6 +8,7 @@ import {
   From,
   InsertStatement,
   Name,
+  QName,
   SelectedColumn,
   SelectStatement,
   Statement,
@@ -73,16 +74,24 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
     }
   ) as Expr;
 
-function refExpr(name: string): ExprRef {
-  return { "type": "ref", name };
+function qualifiedName(table: string, schema?: string): QName {
+  return { schema: schema ? escapeIdentifier(schema) : undefined, name: escapeIdentifier(table) };
+}
+
+function refExpr(name: string, table?: string, schema?: string): ExprRef {
+  return {
+    "type": "ref",
+    name: escapeIdentifier(name),
+    table: table ? qualifiedName(table, schema) : undefined,
+  };
 }
 
 function columnRef(table: string, name: string): ExprRef {
-  return { table: { name: table }, ...refExpr(name) };
+  return { table: { name: escapeIdentifier(table) }, ...refExpr(name) };
 }
 
 function stringExpr(value: string): ExprString {
-  return { "type": "string", value };
+  return { "type": "string", value: escapeLiteral(value) };
 }
 
 const eqList = (valuesMap: Record<string, unknown>) =>
@@ -154,7 +163,7 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
 function makeSelect(table: string, schema?: string): SqlBuilder {
   const statement: Statement = {
     "columns": [],
-    "from": [{ "type": "table", "name": { "name": table, schema } }],
+    "from": [{ "type": "table", "name": qualifiedName(table, schema) }],
     "type": "select",
   };
 
@@ -170,7 +179,7 @@ function selection(builder: SqlBuilder, columns: string[]): SqlBuilder {
       selection: (s) => ({
         ...s,
         columns: columnNames.map((c) => ({
-          expr: { type: "ref", name: c },
+          expr: refExpr(c),
         })),
       }),
     }));
@@ -201,7 +210,7 @@ function makeInsert(
               (value as Record<string, unknown>)["type"] == "ref")))
       ? value
       : value === undefined
-      ? { type: 'default' }
+      ? { type: "default" }
       : { value: JSON.stringify(value), type: "string" })
     ),
   ] as Expr[][];
@@ -331,6 +340,14 @@ function column(tableOrValue: string, name?: string): SelectedColumn {
   } else {
     return { expr: stringExpr(tableOrValue) };
   }
+}
+
+function escapeLiteral(literal: string) {
+  return literal.replaceAll("'", "''");
+}
+
+function escapeIdentifier(identifier: string) {
+  return identifier.replaceAll('"', '""');
 }
 
 export {
