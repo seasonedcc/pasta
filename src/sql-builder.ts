@@ -198,7 +198,7 @@ function makeInsert(
   table: string,
   valueMap: Record<string, unknown>,
 ): SqlBuilder {
-  const columns = Object.keys(valueMap).map((k) => ({ name: k }));
+  const columns = Object.keys(valueMap).map((k) => qualifiedName(String(k)));
   const values = [
     Object.values(valueMap).map((
       value,
@@ -216,7 +216,7 @@ function makeInsert(
   ] as Expr[][];
   const statement: InsertStatement = {
     "type": "insert",
-    "into": { "name": table },
+    "into": qualifiedName(table),
     "insert": {
       "type": "values",
       values,

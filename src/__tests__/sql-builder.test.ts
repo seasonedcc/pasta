@@ -60,6 +60,17 @@ Deno.test(
 );
 
 Deno.test(
+  "Sanitize INSERT identifiers and values",
+  () => {
+    const statement = sql.makeInsert('some_table",injected', { 'id",injected': undefined, data: "test',injected" });
+    assertEquals(
+      statement.toSql(),
+      "INSERT INTO \"some_table\"\",injected\"  (\"id\"\",injected\", data) VALUES (( DEFAULT ), ('test'',injected'))",
+    );
+  },
+);
+
+Deno.test(
   "INSERT",
   () => {
     const statement = sql.makeInsert("some_table", { id: undefined, data: "test" });
