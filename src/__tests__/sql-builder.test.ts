@@ -82,6 +82,14 @@ Deno.test(
 );
 
 Deno.test(
+  "Sanitize DELETE identifiers and values",
+  () => {
+    const statement = sql.makeDelete("some_table\",injected", { "id\",injected": 1 });
+    assertEquals(statement.toSql(), "DELETE FROM \"some_table\"\",injected\"   WHERE ((\"id\"\",injected\") = (('1')))");
+  },
+);
+
+Deno.test(
   "DELETE",
   () => {
     const statement = sql.makeDelete("some_table", { id: 1 });
