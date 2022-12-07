@@ -302,29 +302,26 @@ function makeUpsert(
     astMapper((_map) => ({
       insert: (t) => {
         if (t.insert) {
+          const onConflict = {
+            "do": {
+              "sets": Object.keys(conflictValues).map((k) => ({
+                "column": { "name": escapeIdentifier(k) },
+                "value": stringExpr(String(conflictValues[k]))
+              })),
+            },
+          };
           return {
             ...t,
-            onConflict: {
-              "do": {
-                "sets": Object.keys(conflictValues).map((k) => ({
-                  "column": { "name": k },
-                  "value": {
-                    "type": "string",
-                    "value": String(conflictValues[k]),
-                  },
-                })),
-              },
-            },
+            onConflict,
           };
         }
       },
     }));
 
   const { statement } = makeInsert(table, insertValues);
-  const withOnConflict = onConflictMapper(updateValues || insertValues)
-    .statement(statement)! as InsertStatement;
+  const withOnConflict = onConflictMapper(updateValues ?? insertValues).statement(statement)! as InsertStatement;
   return {
-    toSql: () => toSql.statement(statement),
+    toSql: () => toSql.statement(withOnConflict),
     statement: withOnConflict,
   };
 }

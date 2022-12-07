@@ -96,3 +96,12 @@ Deno.test(
     assertEquals(statement.toSql(), "DELETE FROM some_table   WHERE ((id) = (('1')))");
   },
 );
+
+Deno.test(
+  "UPSERT",
+  () => {
+    const statement = sql.makeUpsert("some_table", { id: 1, updated: false }, { updated: true });
+    assertEquals(statement.toSql(), "INSERT INTO some_table  (id, updated) VALUES (('1'), ('false')) ON CONFLICT  DO UPDATE SET updated = ('true')");
+  },
+);
+
