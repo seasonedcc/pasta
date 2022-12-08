@@ -63,7 +63,7 @@ const [{ id }] = await db.transaction(
 )
 ```
 
-## Quering existing data
+## Querying existing data
 
 Now, let's build a `SELECT` statement that will read existing data.
 
