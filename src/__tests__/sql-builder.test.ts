@@ -9,11 +9,12 @@ Deno.test(
         'tables"; DROP SCHEMA public CASCADE; -- ',
         'information_schema";',
       ),
+      "tables",
       ['column", (SELECT count(*) FROM pg_class) as "injected'],
     );
     assertEquals(
       statement.toSql(),
-      'SELECT "column"", (SELECT count(*) FROM pg_class) as ""injected"  FROM "information_schema"";"."tables""; DROP SCHEMA public CASCADE; -- "',
+      'SELECT tables ."column"", (SELECT count(*) FROM pg_class) as ""injected"  FROM "information_schema"";"."tables""; DROP SCHEMA public CASCADE; -- "',
     );
   },
 );
@@ -31,9 +32,10 @@ Deno.test(
   () => {
     const statement = sql.selection(
       sql.makeSelect("tables", "information_schema"),
+      "tables",
       ["table_name"],
     );
-    assertEquals(statement.toSql(), "SELECT table_name  FROM information_schema.tables");
+    assertEquals(statement.toSql(), "SELECT tables .table_name  FROM information_schema.tables");
   },
 );
 
