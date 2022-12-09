@@ -77,7 +77,7 @@ function qualifiedName(table: string, schema?: string): QName {
   return { schema: schema ? escapeIdentifier(schema) : undefined, name: escapeIdentifier(table) };
 }
 
-function refExpr(name: string, table?: string, schema?: string): ExprRef {
+function exprRef(name: string, table?: string, schema?: string): ExprRef {
   return {
     "type": "ref",
     name: escapeIdentifier(name),
@@ -86,7 +86,7 @@ function refExpr(name: string, table?: string, schema?: string): ExprRef {
 }
 
 function columnRef(table: string, name: string): ExprRef {
-  return { table: { name: escapeIdentifier(table) }, ...refExpr(name) };
+  return { table: { name: escapeIdentifier(table) }, ...exprRef(name) };
 }
 
 function stringExpr(value: string): ExprString {
@@ -96,7 +96,7 @@ function stringExpr(value: string): ExprString {
 const eqList = (valuesMap: Record<string, unknown>) =>
   binaryOp("=")({
     type: "list",
-    expressions: Object.keys(valuesMap).map((k) => refExpr(k)),
+    expressions: Object.keys(valuesMap).map((k) => exprRef(k)),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
@@ -178,7 +178,7 @@ function selection(builder: SqlBuilder, columns: string[]): SqlBuilder {
       selection: (s) => ({
         ...s,
         columns: columnNames.map((c) => ({
-          expr: refExpr(c),
+          expr: exprRef(c),
         })),
       }),
     }));
