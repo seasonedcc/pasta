@@ -9,8 +9,8 @@ Deno.test(
         'tables"; DROP SCHEMA public CASCADE; -- ',
         'information_schema";',
       ),
-      "tables",
       ['column", (SELECT count(*) FROM pg_class) as "injected'],
+      "tables",
     );
     assertEquals(
       statement.toSql(),
@@ -32,12 +32,25 @@ Deno.test(
   () => {
     const statement = sql.selection(
       sql.makeSelect("tables", "information_schema"),
-      "tables",
       ["table_name"],
+      "tables",
     );
     assertEquals(statement.toSql(), "SELECT tables .table_name  FROM information_schema.tables");
   },
 );
+
+Deno.test(
+  "Select columns using alias",
+  () => {
+    const statement = sql.selection(
+      sql.makeSelect("tables", "information_schema"),
+      [["table_name", "name"]],
+      "tables",
+    );
+    assertEquals(statement.toSql(), "SELECT tables .table_name AS name  FROM information_schema.tables");
+  },
+);
+
 
 Deno.test(
   "Sanitize UPDATE identifiers and values",

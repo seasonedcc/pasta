@@ -168,12 +168,22 @@ function makeSelect(table: string, schema?: string): SqlBuilder {
   };
 }
 
-function selection(builder: SqlBuilder, table: string, columns: string[] | [string,string][]): SqlBuilder {
+function selection(
+  builder: SqlBuilder,
+  columns: string[] | [string, string][],
+  table?: string,
+): SqlBuilder {
   const returningMapper = (columnNames: typeof columns) =>
     astMapper((_map) => ({
       selection: (s) => ({
         ...s,
-        columns: columnNames.map((c) => column(table, c)),
+        columns: columnNames.map((c) =>
+          table
+            ? column(table, c)
+            : c instanceof Array
+            ? { expr: exprRef(c[0]), alias: qualifiedName(c[1]) }
+            : { expr: exprRef(c) }
+        ),
       }),
     }));
 
@@ -300,7 +310,7 @@ function makeUpsert(
             "do": {
               "sets": Object.keys(conflictValues).map((k) => ({
                 "column": { "name": escapeIdentifier(k) },
-                "value": stringExpr(String(conflictValues[k]))
+                "value": stringExpr(String(conflictValues[k])),
               })),
             },
           };
@@ -313,7 +323,9 @@ function makeUpsert(
     }));
 
   const { statement } = makeInsert(table, insertValues);
-  const withOnConflict = onConflictMapper(updateValues ?? insertValues).statement(statement)! as InsertStatement;
+  const withOnConflict = onConflictMapper(updateValues ?? insertValues).statement(
+    statement,
+  )! as InsertStatement;
   return {
     toSql: () => toSql.statement(withOnConflict),
     statement: withOnConflict,
@@ -324,10 +336,9 @@ function column(table: string, name: string | [string, string]): SelectedColumn;
 function column(literal: string): SelectedColumn;
 function column(tableOrValue: string, name?: string | [string, string]): SelectedColumn {
   if (name) {
-    if(name instanceof Array){
+    if (name instanceof Array) {
       return { expr: exprRef(name[0], tableOrValue), alias: { name: escapeIdentifier(name[1]) } };
-    }
-    else {
+    } else {
       return { expr: exprRef(name, tableOrValue) };
     }
   } else {
