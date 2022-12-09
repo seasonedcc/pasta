@@ -53,6 +53,18 @@ Deno.test(
 
 
 Deno.test(
+  "Select using order by",
+  () => {
+    const statement = sql.order(
+      sql.makeSelect("tables", "information_schema"),
+      [["name", "ASC"]],
+      "tables",
+    );
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables    ORDER BY name ASC");
+  },
+);
+
+Deno.test(
   "Sanitize UPDATE identifiers and values",
   () => {
     const statement = sql.makeUpdate('some_table" SET field = true;--', { "id\",injected": 1, compositeKey: 2 }, { "data\",injected": "test', another = true" });

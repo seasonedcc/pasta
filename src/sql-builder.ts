@@ -7,6 +7,7 @@ import {
   From,
   InsertStatement,
   Name,
+  OrderByStatement,
   QName,
   SelectedColumn,
   SelectStatement,
@@ -165,6 +166,38 @@ function makeSelect(table: string, schema?: string): SqlBuilder {
   return {
     statement,
     toSql: () => toSql.statement(statement),
+  };
+}
+
+function order(
+  builder: SqlBuilder,
+  columns: string[] | [string, 'ASC' | 'DESC'][],
+  table?: string,
+): SqlBuilder {
+  const returningMapper = (columnNames: typeof columns) =>
+    astMapper((_map) => ({
+      selection: (s) => {
+        const orderBy = columnNames.map((c) => table
+            ? { by: exprRef(c[0]), order: c[1] }
+            : c instanceof Array
+              ? { by: exprRef(c[0]), order: c[1] }
+              : { by: exprRef(c), order: 'ASC'}
+
+        ) as OrderByStatement[]
+        return ({
+          ...s,
+          orderBy
+        });
+      },
+    }));
+
+  const statementWithReturning = returningMapper(columns)
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithReturning,
+    toSql: () => toSql.statement(statementWithReturning),
   };
 }
 
@@ -366,5 +399,6 @@ export {
   returning,
   selection,
   where,
+  order
 };
 export type { SqlBuilder };
