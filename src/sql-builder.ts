@@ -43,6 +43,22 @@ function returning(builder: SqlBuilder, columns: string[]): SqlBuilder {
           };
         }
       },
+      update: (t) => {
+        return {
+          ...t,
+          returning: columnNames.map((c) => ({
+            expr: { type: "ref", name: c },
+          })),
+        };
+      },
+      delete: (t) => {
+        return {
+          ...t,
+          returning: columnNames.map((c) => ({
+            expr: { type: "ref", name: c },
+          })),
+        };
+      },
       insert: (t) => {
         if (t.insert) {
           return {
@@ -171,22 +187,22 @@ function makeSelect(table: string, schema?: string): SqlBuilder {
 
 function order(
   builder: SqlBuilder,
-  columns: string[] | [string, 'ASC' | 'DESC'][],
+  columns: string[] | [string, "ASC" | "DESC"][],
   table?: string,
 ): SqlBuilder {
   const returningMapper = (columnNames: typeof columns) =>
     astMapper((_map) => ({
       selection: (s) => {
-        const orderBy = columnNames.map((c) => table
+        const orderBy = columnNames.map((c) =>
+          table
             ? { by: exprRef(c[0]), order: c[1] }
             : c instanceof Array
-              ? { by: exprRef(c[0]), order: c[1] }
-              : { by: exprRef(c), order: 'ASC'}
-
-        ) as OrderByStatement[]
+            ? { by: exprRef(c[0]), order: c[1] }
+            : { by: exprRef(c), order: "ASC" }
+        ) as OrderByStatement[];
         return ({
           ...s,
-          orderBy
+          orderBy,
         });
       },
     }));
@@ -396,9 +412,9 @@ export {
   makeSelect,
   makeUpdate,
   makeUpsert,
+  order,
   returning,
   selection,
   where,
-  order
 };
 export type { SqlBuilder };
