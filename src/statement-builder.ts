@@ -1,6 +1,8 @@
 import * as sql from "./sql-builder.ts";
 
-type SelectBuilder = sql.SqlBuilder & {
+type SqlBuilder = sql.SqlBuilder
+
+type SelectBuilder = SqlBuilder & {
   selection: (columns: Parameters<typeof sql.selection>[1], table?: string) => SelectBuilder 
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
@@ -102,3 +104,4 @@ function makeUpsert(
 }
 
 export { makeSelect, makeInsert, makeUpdate, makeDelete, makeUpsert }
+export type { SqlBuilder, SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder, UpsertBuilder }
