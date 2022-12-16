@@ -112,7 +112,7 @@ const eqList = (valuesMap: Record<string, unknown>) =>
     expressions: Object.keys(valuesMap).map((k) => exprRef(k)),
   }, {
     type: "list",
-    expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
+    expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
 
 function makeUpdate(
@@ -125,10 +125,7 @@ function makeUpdate(
     "table": qualifiedName(table),
     "sets": Object.keys(setValues).filter((k) => setValues[k] !== undefined).map((k) => ({
       "column": qualifiedName(k),
-      "value": setValues[k] === null ? { type: "null" } : {
-        "type": "string",
-        "value": String(setValues[k]),
-      },
+      "value": jsToSqlLiteral(setValues[k])
     })),
     "where": eqList(keyValues),
   };
@@ -246,27 +243,23 @@ function selection(
   };
 }
 
+function jsToSqlLiteral(value: unknown): Expr {
+  return typeof value === "string"
+    ? { value, type: "string" }
+    : value === undefined
+    ? { type: "default" }
+    : value === null
+    ? { type: "null" }
+    : { value: String(value), type: "string" };
+}
+
 function makeInsert(
   table: string,
   valueMap: Record<string, unknown>,
 ): SqlBuilder {
   const columns = Object.keys(valueMap).map((k) => qualifiedName(String(k)));
   const values = [
-    Object.values(valueMap).map((
-      value,
-    ) => (typeof value === "string"
-      ? { value, type: "string" }
-      : (typeof value === "object" && value !== null &&
-          ("returnType" in value ||
-            ("type" in value &&
-              (value as Record<string, unknown>)["type"] == "ref")))
-      ? value
-      : value === undefined
-      ? { type: "default" }
-      : value === null
-      ? { type: "null" }
-      : { value: escapeLiteral(String(value)), type: "string" })
-    ),
+    Object.values(valueMap).map(jsToSqlLiteral),
   ] as Expr[][];
   const statement: InsertStatement = {
     "type": "insert",
@@ -361,7 +354,7 @@ function makeUpsert(
             "do": {
               "sets": Object.keys(conflictValues).map((k) => ({
                 "column": { "name": escapeIdentifier(k) },
-                "value": stringExpr(String(conflictValues[k])),
+                "value": jsToSqlLiteral(conflictValues[k]),
               })),
             },
           };
