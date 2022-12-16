@@ -1,3 +1,4 @@
+import { uuid } from "../database/pg-catalog.ts";
 import * as sql from "../sql-builder.ts";
 import { assertEquals } from "./prelude.ts";
 
@@ -104,6 +105,17 @@ Deno.test(
     assertEquals(
       statement.toSql(),
       "INSERT INTO some_table  (id, data, nullable) VALUES (( DEFAULT ), ('test'), (null))",
+    );
+  },
+);
+
+Deno.test(
+  "INSERT json values and function calls in the database",
+  () => {
+    const statement = sql.makeInsert("some_table", { id: uuid(), tags: ["some value'; inject --"]});
+    assertEquals(
+      statement.toSql(),
+      "INSERT INTO some_table  (id, tags) VALUES ((gen_random_uuid () ), ('[\"some value''; inject --\"]'))",
     );
   },
 );

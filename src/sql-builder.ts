@@ -250,7 +250,8 @@ function jsToSqlLiteral(value: unknown): Expr {
     ? { type: "default" }
     : value === null
     ? { type: "null" }
-    : { value: String(value), type: "string" };
+    : typeof value === "object" && "returnType" in value ? (value as unknown as Expr)
+    : { value: JSON.stringify(value), type: "string" };
 }
 
 function makeInsert(
