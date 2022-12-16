@@ -78,10 +78,10 @@ Deno.test(
 Deno.test(
   "UPDATE",
   () => {
-    const statement = sql.makeUpdate("some_table", { id: 1, compositeKey: 2 }, { data: "test" });
+    const statement = sql.makeUpdate("some_table", { id: 1, compositeKey: 2 }, { data: "test", nullable: null, optional: undefined });
     assertEquals(
       statement.toSql(),
-      "UPDATE some_table   SET data = ('test')  WHERE ((id, \"compositeKey\") = (('1'), ('2')))",
+      "UPDATE some_table   SET data = ('test') , nullable = (null)  WHERE ((id, \"compositeKey\") = (('1'), ('2')))",
     );
   },
 );

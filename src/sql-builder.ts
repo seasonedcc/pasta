@@ -123,9 +123,9 @@ function makeUpdate(
   const statement: Statement = {
     "type": "update",
     "table": qualifiedName(table),
-    "sets": Object.keys(setValues).map((k) => ({
+    "sets": Object.keys(setValues).filter((k) => setValues[k] !== undefined).map((k) => ({
       "column": qualifiedName(k),
-      "value": {
+      "value": setValues[k] === null ? { type: "null" } : {
         "type": "string",
         "value": String(setValues[k]),
       },
