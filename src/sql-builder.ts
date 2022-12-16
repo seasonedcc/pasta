@@ -263,7 +263,9 @@ function makeInsert(
       ? value
       : value === undefined
       ? { type: "default" }
-      : { value: JSON.stringify(value), type: "string" })
+      : value === null
+      ? { type: "null" }
+      : { value: escapeLiteral(String(value)), type: "string" })
     ),
   ] as Expr[][];
   const statement: InsertStatement = {

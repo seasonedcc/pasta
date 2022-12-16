@@ -100,10 +100,10 @@ Deno.test(
 Deno.test(
   "INSERT",
   () => {
-    const statement = sql.makeInsert("some_table", { id: undefined, data: "test" });
+    const statement = sql.makeInsert("some_table", { id: undefined, data: "test", nullable: null });
     assertEquals(
       statement.toSql(),
-      "INSERT INTO some_table  (id, data) VALUES (( DEFAULT ), ('test'))",
+      "INSERT INTO some_table  (id, data, nullable) VALUES (( DEFAULT ), ('test'), (null))",
     );
   },
 );
