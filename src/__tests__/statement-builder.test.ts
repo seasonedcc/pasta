@@ -4,7 +4,7 @@ import { assertEquals } from "./prelude.ts";
 Deno.test(
   "Select columns with order",
   () => {
-    const stmt =  sql.makeSelect("tables", "information_schema").selection(['table_name'], 'tables').order([['t', 'ASC']])
+    const stmt =  sql.makeSelect("tables", "information_schema").columns(['table_name'], 'tables').order([['t', 'ASC']])
     assertEquals(stmt.toSql(), "SELECT tables .table_name  FROM information_schema.tables    ORDER BY t ASC");
   },
 );
