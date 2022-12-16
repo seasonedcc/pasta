@@ -1,3 +1,4 @@
+import { uuid } from "../database/pg-catalog.ts";
 import * as sql from "../sql-builder.ts";
 import { assertEquals } from "./prelude.ts";
 
@@ -78,10 +79,10 @@ Deno.test(
 Deno.test(
   "UPDATE",
   () => {
-    const statement = sql.makeUpdate("some_table", { id: 1, compositeKey: 2 }, { data: "test" });
+    const statement = sql.makeUpdate("some_table", { id: 1, compositeKey: 2 }, { data: "test", nullable: null, optional: undefined });
     assertEquals(
       statement.toSql(),
-      "UPDATE some_table   SET data = ('test')  WHERE ((id, \"compositeKey\") = (('1'), ('2')))",
+      "UPDATE some_table   SET data = ('test') , nullable = (null)  WHERE ((id, \"compositeKey\") = (('1'), ('2')))",
     );
   },
 );
@@ -100,10 +101,21 @@ Deno.test(
 Deno.test(
   "INSERT",
   () => {
-    const statement = sql.makeInsert("some_table", { id: undefined, data: "test" });
+    const statement = sql.makeInsert("some_table", { id: undefined, data: "test", nullable: null });
     assertEquals(
       statement.toSql(),
-      "INSERT INTO some_table  (id, data) VALUES (( DEFAULT ), ('test'))",
+      "INSERT INTO some_table  (id, data, nullable) VALUES (( DEFAULT ), ('test'), (null))",
+    );
+  },
+);
+
+Deno.test(
+  "INSERT json values and function calls in the database",
+  () => {
+    const statement = sql.makeInsert("some_table", { id: uuid(), tags: ["some value'; inject --"]});
+    assertEquals(
+      statement.toSql(),
+      "INSERT INTO some_table  (id, tags) VALUES ((gen_random_uuid () ), ('[\"some value''; inject --\"]'))",
     );
   },
 );

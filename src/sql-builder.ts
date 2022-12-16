@@ -43,6 +43,22 @@ function returning(builder: SqlBuilder, columns: string[]): SqlBuilder {
           };
         }
       },
+      update: (t) => {
+        return {
+          ...t,
+          returning: columnNames.map((c) => ({
+            expr: { type: "ref", name: c },
+          })),
+        };
+      },
+      delete: (t) => {
+        return {
+          ...t,
+          returning: columnNames.map((c) => ({
+            expr: { type: "ref", name: c },
+          })),
+        };
+      },
       insert: (t) => {
         if (t.insert) {
           return {
@@ -96,7 +112,7 @@ const eqList = (valuesMap: Record<string, unknown>) =>
     expressions: Object.keys(valuesMap).map((k) => exprRef(k)),
   }, {
     type: "list",
-    expressions: Object.values(valuesMap).map((v) => stringExpr(String(v))),
+    expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
 
 function makeUpdate(
@@ -107,12 +123,9 @@ function makeUpdate(
   const statement: Statement = {
     "type": "update",
     "table": qualifiedName(table),
-    "sets": Object.keys(setValues).map((k) => ({
+    "sets": Object.keys(setValues).filter((k) => setValues[k] !== undefined).map((k) => ({
       "column": qualifiedName(k),
-      "value": {
-        "type": "string",
-        "value": String(setValues[k]),
-      },
+      "value": jsToSqlLiteral(setValues[k])
     })),
     "where": eqList(keyValues),
   };
@@ -171,22 +184,22 @@ function makeSelect(table: string, schema?: string): SqlBuilder {
 
 function order(
   builder: SqlBuilder,
-  columns: string[] | [string, 'ASC' | 'DESC'][],
+  columns: string[] | [string, "ASC" | "DESC"][],
   table?: string,
 ): SqlBuilder {
   const returningMapper = (columnNames: typeof columns) =>
     astMapper((_map) => ({
       selection: (s) => {
-        const orderBy = columnNames.map((c) => table
+        const orderBy = columnNames.map((c) =>
+          table
             ? { by: exprRef(c[0]), order: c[1] }
             : c instanceof Array
-              ? { by: exprRef(c[0]), order: c[1] }
-              : { by: exprRef(c), order: 'ASC'}
-
-        ) as OrderByStatement[]
+            ? { by: exprRef(c[0]), order: c[1] }
+            : { by: exprRef(c), order: "ASC" }
+        ) as OrderByStatement[];
         return ({
           ...s,
-          orderBy
+          orderBy,
         });
       },
     }));
@@ -230,25 +243,24 @@ function selection(
   };
 }
 
+function jsToSqlLiteral(value: unknown): Expr {
+  return typeof value === "string"
+    ? { value, type: "string" }
+    : value === undefined
+    ? { type: "default" }
+    : value === null
+    ? { type: "null" }
+    : typeof value === "object" && "returnType" in value ? (value as unknown as Expr)
+    : { value: JSON.stringify(value), type: "string" };
+}
+
 function makeInsert(
   table: string,
   valueMap: Record<string, unknown>,
 ): SqlBuilder {
   const columns = Object.keys(valueMap).map((k) => qualifiedName(String(k)));
   const values = [
-    Object.values(valueMap).map((
-      value,
-    ) => (typeof value === "string"
-      ? { value, type: "string" }
-      : (typeof value === "object" && value !== null &&
-          ("returnType" in value ||
-            ("type" in value &&
-              (value as Record<string, unknown>)["type"] == "ref")))
-      ? value
-      : value === undefined
-      ? { type: "default" }
-      : { value: JSON.stringify(value), type: "string" })
-    ),
+    Object.values(valueMap).map(jsToSqlLiteral),
   ] as Expr[][];
   const statement: InsertStatement = {
     "type": "insert",
@@ -343,7 +355,7 @@ function makeUpsert(
             "do": {
               "sets": Object.keys(conflictValues).map((k) => ({
                 "column": { "name": escapeIdentifier(k) },
-                "value": stringExpr(String(conflictValues[k])),
+                "value": jsToSqlLiteral(conflictValues[k]),
               })),
             },
           };
@@ -396,9 +408,9 @@ export {
   makeSelect,
   makeUpdate,
   makeUpsert,
+  order,
   returning,
   selection,
   where,
-  order
 };
 export type { SqlBuilder };
