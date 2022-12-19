@@ -9,6 +9,7 @@ import {
   Name,
   OrderByStatement,
   QName,
+  QNameAliased,
   SelectedColumn,
   SelectStatement,
   Statement,
@@ -89,6 +90,10 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
       op,
     }
   ) as Expr;
+
+function aliasedName(table: string, alias: string, schema?: string): QNameAliased {
+  return { ...qualifiedName(table, schema), alias: escapeIdentifier(alias) };
+}
 
 function qualifiedName(table: string, schema?: string): QName {
   return { schema: schema ? escapeIdentifier(schema) : undefined, name: escapeIdentifier(table) };
@@ -172,10 +177,15 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
   };
 }
 
-function makeSelect(table: string, schema?: string): SqlBuilder {
+function makeSelect(table: string | [string, string], schema?: string): SqlBuilder {
+  const tableName = table instanceof Array ? table[0] : table;
+  const name = table instanceof Array
+    ? aliasedName(tableName, table[1], schema)
+    : qualifiedName(tableName, schema);
+
   const statement: Statement = {
     "columns": [],
-    "from": [{ "type": "table", "name": qualifiedName(table, schema) }],
+    "from": [{ "type": "table", name }],
     "type": "select",
   };
 
