@@ -29,6 +29,15 @@ Deno.test(
 );
 
 Deno.test(
+  "Make a select using a schema and alias",
+  () => {
+    const statement = sql.makeSelect(["tables", "t"], "information_schema");
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables  AS t");
+  },
+);
+
+
+Deno.test(
   "Select columns",
   () => {
     const statement = sql.selection(

@@ -8,7 +8,7 @@ type SelectBuilder = SqlBuilder & {
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
 }
 
-function makeSelect(table: string, schema?: string): SelectBuilder {
+function makeSelect(table: string | [string, string], schema?: string): SelectBuilder {
   const builder = sql.makeSelect(table, schema) as SelectBuilder
   const columns = (columns: Parameters<typeof sql.selection>[1], table?: string) => {
     const { statement, toSql } = sql.selection(builder, columns, table)
