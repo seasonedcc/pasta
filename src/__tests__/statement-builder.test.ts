@@ -32,7 +32,8 @@ Deno.test(
   () => {
     const stmt = sql
       .makeSelect(["table_constraints", "pk_tco"], "information_schema")
-      .columns([["table_name", "table_name"]], "pk_tco").unionAll(sql.makeSelect("someOtherTable"))
+      .columns([["table_name", "table_name"]], "pk_tco")
+      .unionAll(sql.makeSelect("someOtherTable"))
 
     assertEquals(
       stmt.toSql(),

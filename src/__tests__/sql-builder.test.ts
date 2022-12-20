@@ -47,6 +47,19 @@ Deno.test(
 );
 
 Deno.test(
+  "Make a select using an inner join",
+  () => {
+    const statement = sql.join(
+      sql.makeSelect("tables", "information_schema"),
+      ["columns", "information_schema"],
+      { "tables.id": "columns.table_id" }
+    );
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables  INNER JOIN information_schema.columns  ON ((tables .id) = (columns .table_id))");
+  },
+);
+
+
+Deno.test(
   "Select columns",
   () => {
     const statement = sql.selection(

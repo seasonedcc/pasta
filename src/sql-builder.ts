@@ -111,14 +111,29 @@ function stringExpr(value: string): ExprString {
   return { "type": "string", value: escapeLiteral(value) };
 }
 
-const eqList = (valuesMap: Record<string, unknown>) =>
-  binaryOp("=")({
+function joinEqList(keyMap: Record<string, string>) {
+  return binaryOp("=")({
+    type: "list",
+    expressions: Object.keys(keyMap).map((k) =>
+      exprRef(...(k.split(".").reverse() as [string, string, string]))
+    ),
+  }, {
+    type: "list",
+    expressions: Object.values(keyMap).map((v) =>
+      exprRef(...(v.split(".").reverse() as [string, string, string]))
+    ),
+  }) as Expr;
+}
+
+function eqList(valuesMap: Record<string, unknown>) {
+  return binaryOp("=")({
     type: "list",
     expressions: Object.keys(valuesMap).map((k) => exprRef(k)),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
+}
 
 function makeUpdate(
   table: string,
@@ -176,8 +191,12 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
 
 function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBuilder {
   const [{ statement: left }, { statement: right }] = [leftBuilder, rightBuilder];
-  if(left.type === "update" || left.type === "insert" || left.type === "delete") throw new Error("Union must have 2 Select statements")
-  if(right.type === "update" || right.type === "insert" || right.type === "delete") throw new Error("Union must have 2 Select statements")
+  if (left.type === "update" || left.type === "insert" || left.type === "delete") {
+    throw new Error("Union must have 2 Select statements");
+  }
+  if (right.type === "update" || right.type === "insert" || right.type === "delete") {
+    throw new Error("Union must have 2 Select statements");
+  }
   const statement: Statement = {
     type: "union all",
     left,
@@ -186,7 +205,7 @@ function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBui
   return {
     statement,
     toSql: () => toSql.statement(statement),
-  }
+  };
 }
 
 function makeSelect(table: string | [string, string], schema?: string): SqlBuilder {
@@ -277,6 +296,40 @@ function jsToSqlLiteral(value: unknown): Expr {
     ? { type: "null" }
     : typeof value === "object" && "returnType" in value ? (value as unknown as Expr)
     : { value: JSON.stringify(value), type: "string" };
+}
+
+function join(
+  builder: SqlBuilder,
+  relation: [string, string] | string,
+  on: Record<string, string>,
+  type: "INNER JOIN" = "INNER JOIN",
+): SqlBuilder {
+  const joinMapper = () =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        from: [
+          ...s.from ?? [],
+          {
+            type: "table",
+            name: relation instanceof Array ? qualifiedName(...relation) : qualifiedName(relation),
+            join: {
+              type,
+              on: joinEqList(on)
+            },
+          },
+        ],
+      }),
+    }));
+
+  const statementWithJoin = joinMapper()
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithJoin,
+    toSql: () => toSql.statement(statementWithJoin),
+  };
 }
 
 function makeInsert(
@@ -426,14 +479,15 @@ function escapeIdentifier(identifier: string) {
 
 export {
   column,
+  join,
   makeDelete,
   makeInsert,
   makeInsertFrom,
   makeInsertWith,
   makeSelect,
+  makeUnionAll,
   makeUpdate,
   makeUpsert,
-  makeUnionAll,
   order,
   returning,
   selection,
