@@ -174,6 +174,21 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
   };
 }
 
+function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBuilder {
+  const [{ statement: left }, { statement: right }] = [leftBuilder, rightBuilder];
+  if(left.type === "update" || left.type === "insert" || left.type === "delete") throw new Error("Union must have 2 Select statements")
+  if(right.type === "update" || right.type === "insert" || right.type === "delete") throw new Error("Union must have 2 Select statements")
+  const statement: Statement = {
+    type: "union all",
+    left,
+    right,
+  };
+  return {
+    statement,
+    toSql: () => toSql.statement(statement),
+  }
+}
+
 function makeSelect(table: string | [string, string], schema?: string): SqlBuilder {
   const tableName = table instanceof Array ? table[0] : table;
   const name = table instanceof Array
@@ -418,6 +433,7 @@ export {
   makeSelect,
   makeUpdate,
   makeUpsert,
+  makeUnionAll,
   order,
   returning,
   selection,

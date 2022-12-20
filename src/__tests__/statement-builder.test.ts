@@ -28,6 +28,21 @@ Deno.test(
 );
 
 Deno.test(
+  "Select from union",
+  () => {
+    const stmt = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .columns([["table_name", "table_name"]], "pk_tco").unionAll(sql.makeSelect("someOtherTable"))
+
+    assertEquals(
+      stmt.toSql(),
+      "(SELECT pk_tco .table_name AS table_name  FROM information_schema.table_constraints  AS pk_tco  ) UNION ALL (SELECT  FROM \"someOtherTable\"   )",
+    );
+  },
+);
+
+
+Deno.test(
   "UPDATE",
   () => {
     const statement = sql.makeUpdate("some_table", { id: 1, compositeKey: 2 }, { data: "test" })
