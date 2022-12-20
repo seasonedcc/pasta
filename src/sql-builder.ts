@@ -267,13 +267,16 @@ function selection(
     astMapper((_map) => ({
       selection: (s) => ({
         ...s,
-        columns: columnNames.map((c) =>
-          table
-            ? column(table, c)
-            : c instanceof Array
-            ? { expr: exprRef(c[0]), alias: qualifiedName(c[1]) }
-            : { expr: exprRef(c) }
-        ),
+        columns: [
+          ...s.columns ?? [],
+          ...columnNames.map((c) =>
+            table
+              ? column(table, c)
+              : c instanceof Array
+              ? { expr: exprRef(c[0]), alias: qualifiedName(c[1]) }
+              : { expr: exprRef(c) }
+          ),
+        ],
       }),
     }));
 
