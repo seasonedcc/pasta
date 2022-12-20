@@ -42,6 +42,21 @@ Deno.test(
   },
 );
 
+Deno.test(
+  "Select with join",
+  () => {
+    const stmt = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .columns([["table_name", "table_name"]], "pk_tco")
+      .join(["tables", "information_schema"], { "tables.id": "pk_tco.id" })
+
+    assertEquals(
+      stmt.toSql(),
+      "SELECT pk_tco .table_name AS table_name  FROM information_schema.table_constraints  AS pk_tco INNER JOIN information_schema.tables  ON ((tables .id) = (pk_tco .id))",
+    );
+  },
+);
+
 
 Deno.test(
   "UPDATE",

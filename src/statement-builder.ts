@@ -7,30 +7,37 @@ type SelectBuilder = SqlBuilder & {
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
   unionAll: (anotherBuilder: SelectBuilder) => SelectBuilder 
+  join: (relation: Parameters<typeof sql.join>[1], on: Parameters<typeof sql.join>[2], type?: Parameters<typeof sql.join>[3]) => SelectBuilder
 }
 
 function makeSelect(table: string | [string, string], schema?: string): SelectBuilder {
   const builder = sql.makeSelect(table, schema) as SelectBuilder
-  const columns = (columns: Parameters<typeof sql.selection>[1], table?: string) => {
+  const columns: SelectBuilder["columns"] = (columns, table) => {
     const { statement, toSql } = sql.selection(builder, columns, table)
     builder.statement = statement
     builder.toSql = toSql
     return builder
   }
-  const order = (columns: Parameters<typeof sql.order>[1], table?: string) => {
+  const order: SelectBuilder["order"] = (columns, table) => {
     const { statement, toSql } = sql.order(builder, columns, table)
     builder.statement = statement
     builder.toSql = toSql
     return builder
   }
-  const where = (columns: Parameters<typeof sql.where>[1]) => {
+  const where: SelectBuilder["where"] = (columns) => {
     const { statement, toSql } = sql.where(builder, columns)
     builder.statement = statement
     builder.toSql = toSql
     return builder
   }
-  const unionAll = (anotherBuilder: SelectBuilder) => {
+  const unionAll: SelectBuilder["unionAll"] = (anotherBuilder) => {
     const { statement, toSql } = sql.makeUnionAll(builder, anotherBuilder)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+  const join: SelectBuilder["join"] = (relation, on, type) => {
+    const { statement, toSql } = sql.join(builder, relation, on, type)
     builder.statement = statement
     builder.toSql = toSql
     return builder
@@ -40,6 +47,7 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
   builder.order = order
   builder.where = where
   builder.unionAll = unionAll
+  builder.join = join
   return builder
 }
 
