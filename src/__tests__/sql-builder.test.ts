@@ -35,6 +35,15 @@ Deno.test(
   },
 );
 
+Deno.test(
+  "Make a select from union all",
+  () => {
+    const statementA = sql.makeSelect(["tables", "t1"], "information_schema");
+    const statementB = sql.makeSelect(["tables", "t2"], "information_schema");
+    const statement = sql.makeUnionAll(statementA, statementB)
+    assertEquals(statement.toSql(), "(SELECT  FROM information_schema.tables  AS t1  ) UNION ALL (SELECT  FROM information_schema.tables  AS t2  )");
+  },
+);
 
 Deno.test(
   "Select columns",
