@@ -48,7 +48,7 @@ Deno.test(
     const stmt = sql
       .makeSelect(["table_constraints", "pk_tco"], "information_schema")
       .columns([["table_name", "table_name"]], "pk_tco")
-      .join(["tables", "information_schema"], { "tables.id": "pk_tco.id" })
+      .join("tables", { "tables.id": "pk_tco.id" }, "information_schema")
 
     assertEquals(
       stmt.toSql(),

@@ -298,12 +298,19 @@ function jsToSqlLiteral(value: unknown): Expr {
     : { value: JSON.stringify(value), type: "string" };
 }
 
+// table: string | [string, string], schema?: string
 function join(
   builder: SqlBuilder,
-  relation: [string, string] | string,
+  relation: string | [string, string],
   on: Record<string, string>,
+  schema?: string,
   type: "INNER JOIN" = "INNER JOIN",
 ): SqlBuilder {
+  const tableName = relation instanceof Array ? relation[0] : relation;
+  const name = relation instanceof Array
+    ? aliasedName(tableName, relation[1], schema)
+    : qualifiedName(tableName, schema);
+
   const joinMapper = () =>
     astMapper((_map) => ({
       selection: (s) => ({
@@ -312,7 +319,7 @@ function join(
           ...s.from ?? [],
           {
             type: "table",
-            name: relation instanceof Array ? qualifiedName(...relation) : qualifiedName(relation),
+            name,
             join: {
               type,
               on: joinEqList(on)

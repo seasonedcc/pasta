@@ -7,7 +7,7 @@ type SelectBuilder = SqlBuilder & {
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
   unionAll: (anotherBuilder: SelectBuilder) => SelectBuilder 
-  join: (relation: Parameters<typeof sql.join>[1], on: Parameters<typeof sql.join>[2], type?: Parameters<typeof sql.join>[3]) => SelectBuilder
+  join: (relation: Parameters<typeof sql.join>[1], on: Parameters<typeof sql.join>[2], schema?: Parameters<typeof sql.join>[3], type?: Parameters<typeof sql.join>[4]) => SelectBuilder
 }
 
 function makeSelect(table: string | [string, string], schema?: string): SelectBuilder {
@@ -36,8 +36,8 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
     builder.toSql = toSql
     return builder
   }
-  const join: SelectBuilder["join"] = (relation, on, type) => {
-    const { statement, toSql } = sql.join(builder, relation, on, type)
+  const join: SelectBuilder["join"] = (relation, on, schema, type) => {
+    const { statement, toSql } = sql.join(builder, relation, on, schema, type)
     builder.statement = statement
     builder.toSql = toSql
     return builder
