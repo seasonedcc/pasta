@@ -162,7 +162,7 @@ const concat = binaryOp("||");
 
 function regex(fields: string[], pattern: string) {
   const leftExpr = fields.reduce((prev, current) => {
-    const fe: Expr = coalesce(
+    const comparison: Expr = coalesce(
       cast(
         exprRef(...(current.split(".").reverse() as [string, string, string])),
         qualifiedName("text"),
@@ -170,9 +170,9 @@ function regex(fields: string[], pattern: string) {
       stringExpr(""),
     );
     if (prev) {
-      return concat(concat(prev, stringExpr(" ")), fe);
+      return concat(concat(prev, stringExpr(" ")), comparison);
     }
-    return fe;
+    return comparison;
   }, undefined as unknown as Expr);
   return binaryOp("~*")(
     leftExpr,
