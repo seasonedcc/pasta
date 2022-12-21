@@ -3,6 +3,8 @@ import {
   DeleteStatement,
   Expr,
   ExprBinary,
+  ExprCall,
+  ExprCast,
   ExprRef,
   ExprString,
   From,
@@ -92,9 +94,7 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
     }
   ) as Expr;
 
-const eq = binaryOp("=")
-
-
+const eq = binaryOp("=");
 
 function aliasedName(table: string, alias: string, schema?: string): QNameAliased {
   return { ...qualifiedName(table, schema), alias: escapeIdentifier(alias) };
@@ -133,18 +133,51 @@ function joinEqList(keyMap: Record<string, string>) {
 function eqList(valuesMap: Record<string, unknown>) {
   return eq({
     type: "list",
-    expressions: Object.keys(valuesMap).map((k) => exprRef(...(k.split(".").reverse() as [string, string, string]))),
+    expressions: Object.keys(valuesMap).map((k) =>
+      exprRef(...(k.split(".").reverse() as [string, string, string]))
+    ),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
 }
 
-function regex(field: string, pattern: string) {
+function cast(operand: Expr, to: Name): ExprCast {
+  return {
+    type: "cast",
+    operand,
+    to,
+  };
+}
+
+function coalesce(...args: Expr[]): ExprCall {
+  return {
+    type: "call",
+    function: { name: "coalesce" },
+    args,
+  };
+}
+
+const concat = binaryOp("||");
+
+function regex(fields: string[], pattern: string) {
+  const leftExpr = fields.reduce((prev, current) => {
+    const fe: Expr = coalesce(
+      cast(
+        exprRef(...(current.split(".").reverse() as [string, string, string])),
+        qualifiedName("text"),
+      ),
+      stringExpr(""),
+    );
+    if (prev) {
+      return concat(concat(prev, stringExpr(" ")), fe);
+    }
+    return fe;
+  }, undefined as unknown as Expr);
   return binaryOp("~*")(
-    exprRef(...(field.split(".").reverse() as [string, string, string])), 
-    stringExpr(pattern)
-  )
+    leftExpr,
+    stringExpr(pattern),
+  );
 }
 
 function makeUpdate(
@@ -202,7 +235,7 @@ function whereExpression(builder: SqlBuilder, filter: Expr) {
 }
 
 function where(builder: SqlBuilder, filter: Record<string, unknown>) {
-  return whereExpression(builder, eqList(filter))
+  return whereExpression(builder, eqList(filter));
 }
 
 function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBuilder {
@@ -285,7 +318,7 @@ function selectionLiteral(
         columns: [
           ...s.columns ?? [],
           ...columnNames.map((c) =>
-              c instanceof Array
+            c instanceof Array
               ? { expr: jsToSqlLiteral(c[0]), alias: qualifiedName(c[1]) }
               : { expr: jsToSqlLiteral(c) }
           ),
@@ -545,11 +578,11 @@ export {
   makeUpdate,
   makeUpsert,
   order,
+  regex,
   returning,
   selection,
   selectionLiteral,
   where,
   whereExpression,
-  regex
 };
 export type { SqlBuilder };

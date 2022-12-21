@@ -112,9 +112,9 @@ Deno.test(
   () => {
     const statement = sql.whereExpression(
       sql.makeSelect("tables", "information_schema"),
-      sql.regex("someTextField", "searchPattern.*") 
+      sql.regex(["someTextField", "anotherSearchable"], "searchPattern.*") 
     );
-    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables   WHERE (\"someTextField\" ~* ('searchPattern.*'))");
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables   WHERE ((((coalesce ((\"someTextField\"::text ), ('')) ) || (' ')) || (coalesce ((\"anotherSearchable\"::text ), ('')) )) ~* ('searchPattern.*'))");
   },
 );
 
