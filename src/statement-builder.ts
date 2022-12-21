@@ -6,6 +6,7 @@ type SelectBuilder = SqlBuilder & {
   columns: (columns: Parameters<typeof sql.selection>[1], table?: string) => SelectBuilder 
   literals: (columns: Parameters<typeof sql.selectionLiteral>[1]) => SelectBuilder 
   subqueries: (columns: Parameters<typeof sql.selectionSubquery>[1]) => SelectBuilder 
+  expressions: (columns: Parameters<typeof sql.selectionExpression>[1]) => SelectBuilder 
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
   filterRegex: (columns: Parameters<typeof sql.regex>[0], pattern: Parameters<typeof sql.regex>[1]) => SelectBuilder 
@@ -19,6 +20,12 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
   const builder = sql.makeSelect(table, schema) as SelectBuilder
   const literals: SelectBuilder["literals"] = (columns) => {
     const { statement, toSql } = sql.selectionLiteral(builder, columns)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+  const expressions: SelectBuilder["expressions"] = (columns) => {
+    const { statement, toSql } = sql.selectionExpression(builder, columns)
     builder.statement = statement
     builder.toSql = toSql
     return builder
@@ -80,6 +87,7 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
 
   builder.columns = columns
   builder.literals = literals
+  builder.expressions = expressions
   builder.subqueries = subqueries
   builder.order = order
   builder.where = where
@@ -160,5 +168,6 @@ function makeUpsert(
   return builder
 }
 
+export { count } from './sql-builder.ts'
 export { makeSelect, makeInsert, makeUpdate, makeDelete, makeUpsert }
 export type { SqlBuilder, SelectBuilder, InsertBuilder, UpdateBuilder, DeleteBuilder, UpsertBuilder }

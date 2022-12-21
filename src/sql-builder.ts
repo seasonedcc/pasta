@@ -158,6 +158,15 @@ function coalesce(...args: Expr[]): ExprCall {
   };
 }
 
+function count(...args: string[]): ExprCall {
+  return {
+    type: "call",
+    function: { name: "count" },
+    args: args.map((c) => 
+        exprRef(...(c.split(".").reverse() as [string, string, string])))
+  };
+}
+
 const concat = binaryOp("||");
 
 function regex(fields: string[], pattern: string) {
@@ -358,9 +367,9 @@ function order(
   };
 }
 
-function selectionLiteral(
+function selectionExpression(
   builder: SqlBuilder,
-  columns: unknown[] | [unknown, string][],
+  columns: Expr[] | [Expr, string][],
 ): SqlBuilder {
   const returningMapper = (columnNames: typeof columns) =>
     astMapper((_map) => ({
@@ -369,9 +378,7 @@ function selectionLiteral(
         columns: [
           ...s.columns ?? [],
           ...columnNames.map((c) =>
-            c instanceof Array
-              ? { expr: jsToSqlLiteral(c[0]), alias: qualifiedName(c[1]) }
-              : { expr: jsToSqlLiteral(c) }
+            c instanceof Array ? { expr: c[0], alias: qualifiedName(c[1]) } : { expr: c }
           ),
         ],
       }),
@@ -387,33 +394,32 @@ function selectionLiteral(
   };
 }
 
+function selectionLiteral(
+  builder: SqlBuilder,
+  columns: unknown[] | [unknown, string][],
+): SqlBuilder {
+  const expressions = columns.map((c) =>
+    c instanceof Array ? [jsToSqlLiteral(c[0]), c[1]] : jsToSqlLiteral(c)
+  ) as Expr[] | [Expr, string][];
+
+  return selectionExpression(
+    builder,
+    expressions,
+  );
+}
+
 function selectionSubquery(
   builder: SqlBuilder,
   columns: SqlBuilder[] | [SqlBuilder, string][],
 ): SqlBuilder {
-  const returningMapper = (columnNames: typeof columns) =>
-    astMapper((_map) => ({
-      selection: (s) => ({
-        ...s,
-        columns: [
-          ...s.columns ?? [],
-          ...columnNames.map((c) =>
-              c instanceof Array
-              ? { expr: (c[0].statement as SelectStatement), alias: qualifiedName(c[1]) }
-              : { expr: (c.statement as SelectStatement) }
-          ),
-        ],
-      }),
-    }));
+  const expressions = columns.map((c) =>
+    c instanceof Array ? [c[0].statement, c[1]] : c.statement
+  ) as Expr[] | [Expr, string][];
 
-  const statementWithReturning = returningMapper(columns)
-    .statement(
-      builder.statement,
-    )! as SelectStatement;
-  return {
-    statement: statementWithReturning,
-    toSql: () => toSql.statement(statementWithReturning),
-  };
+  return selectionExpression(
+    builder,
+    expressions,
+  );
 }
 
 function selection(
@@ -648,6 +654,7 @@ function escapeIdentifier(identifier: string) {
 
 export {
   column,
+  count,
   join,
   limit,
   makeDelete,
@@ -665,6 +672,7 @@ export {
   selection,
   selectionLiteral,
   selectionSubquery,
+  selectionExpression,
   where,
   whereExpression,
 };

@@ -43,6 +43,21 @@ Deno.test(
 );
 
 Deno.test(
+  "Select with count",
+  () => {
+    const stmt = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .expressions([sql.count("*")])
+
+    assertEquals(
+      stmt.toSql(),
+      'SELECT (count (*) )  FROM information_schema.table_constraints  AS pk_tco',
+    );
+  },
+);
+
+
+Deno.test(
   "Select from union",
   () => {
     const stmt = sql
