@@ -28,6 +28,35 @@ Deno.test(
 );
 
 Deno.test(
+  "Select with limit and offset",
+  () => {
+    const stmt = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .limit(10)
+      .offset(5);
+
+    assertEquals(
+      stmt.toSql(),
+      "SELECT  FROM information_schema.table_constraints  AS pk_tco  OFFSET (5)LIMIT (10)",
+    );
+  },
+);
+
+Deno.test(
+  "Select with count",
+  () => {
+    const stmt = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .expressions([sql.count("*")]);
+
+    assertEquals(
+      stmt.toSql(),
+      "SELECT (count (*) )  FROM information_schema.table_constraints  AS pk_tco",
+    );
+  },
+);
+
+Deno.test(
   "Select from union",
   () => {
     const stmt = sql
@@ -83,9 +112,14 @@ Deno.test(
         "fk_tco.table_schema": "kcu.table_schema",
       }, "information_schema");
 
-    const stmt = selectReference.where({ "pk_tco.table_name": 'x' }).unionAll(selectRelation.where({ "fk_tco.table_name": "x" }))
+    const stmt = selectReference.where({ "pk_tco.table_name": "x" }).unionAll(
+      selectRelation.where({ "fk_tco.table_name": "x" }),
+    );
 
-    assertEquals(stmt.toSql(), `(SELECT pk_tco .table_name AS table_name , (null) AS relations , fk_tco .table_name AS "references" , kcu .column_name AS foreign_keys  FROM information_schema.referential_constraints  AS rco INNER JOIN information_schema.table_constraints  AS fk_tco ON ((rco .constraint_name, rco .constraint_schema) = (fk_tco .constraint_name, fk_tco .table_schema)) INNER JOIN information_schema.table_constraints  AS pk_tco ON ((rco .unique_constraint_name, rco .unique_constraint_schema) = (pk_tco .constraint_name, pk_tco .table_schema)) INNER JOIN information_schema.key_column_usage  AS kcu ON ((fk_tco .constraint_name, fk_tco .table_schema) = (kcu .constraint_name, kcu .table_schema))  WHERE ((pk_tco .table_name) = (('x'))) ) UNION ALL (SELECT fk_tco .table_name AS table_name , pk_tco .table_name AS relations , (null) AS "references" , kcu .column_name AS foreign_keys  FROM information_schema.referential_constraints  AS rco INNER JOIN information_schema.table_constraints  AS fk_tco ON ((rco .constraint_name, rco .constraint_schema) = (fk_tco .constraint_name, fk_tco .table_schema)) INNER JOIN information_schema.table_constraints  AS pk_tco ON ((rco .unique_constraint_name, rco .unique_constraint_schema) = (pk_tco .constraint_name, pk_tco .table_schema)) INNER JOIN information_schema.key_column_usage  AS kcu ON ((fk_tco .constraint_name, fk_tco .table_schema) = (kcu .constraint_name, kcu .table_schema))  WHERE ((fk_tco .table_name) = (('x'))) )`);
+    assertEquals(
+      stmt.toSql(),
+      `(SELECT pk_tco .table_name AS table_name , (null) AS relations , fk_tco .table_name AS "references" , kcu .column_name AS foreign_keys  FROM information_schema.referential_constraints  AS rco INNER JOIN information_schema.table_constraints  AS fk_tco ON ((rco .constraint_name, rco .constraint_schema) = (fk_tco .constraint_name, fk_tco .table_schema)) INNER JOIN information_schema.table_constraints  AS pk_tco ON ((rco .unique_constraint_name, rco .unique_constraint_schema) = (pk_tco .constraint_name, pk_tco .table_schema)) INNER JOIN information_schema.key_column_usage  AS kcu ON ((fk_tco .constraint_name, fk_tco .table_schema) = (kcu .constraint_name, kcu .table_schema))  WHERE ((pk_tco .table_name) = (('x'))) ) UNION ALL (SELECT fk_tco .table_name AS table_name , pk_tco .table_name AS relations , (null) AS "references" , kcu .column_name AS foreign_keys  FROM information_schema.referential_constraints  AS rco INNER JOIN information_schema.table_constraints  AS fk_tco ON ((rco .constraint_name, rco .constraint_schema) = (fk_tco .constraint_name, fk_tco .table_schema)) INNER JOIN information_schema.table_constraints  AS pk_tco ON ((rco .unique_constraint_name, rco .unique_constraint_schema) = (pk_tco .constraint_name, pk_tco .table_schema)) INNER JOIN information_schema.key_column_usage  AS kcu ON ((fk_tco .constraint_name, fk_tco .table_schema) = (kcu .constraint_name, kcu .table_schema))  WHERE ((fk_tco .table_name) = (('x'))) )`,
+    );
   },
 );
 Deno.test(

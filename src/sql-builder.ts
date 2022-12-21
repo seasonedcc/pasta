@@ -2,6 +2,9 @@ import {
   astMapper,
   DeleteStatement,
   Expr,
+  ExprCall,
+  ExprCast,
+  ExprInteger,
   ExprRef,
   ExprString,
   From,
@@ -91,6 +94,8 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
     }
   ) as Expr;
 
+const eq = binaryOp("=");
+
 function aliasedName(table: string, alias: string, schema?: string): QNameAliased {
   return { ...qualifiedName(table, schema), alias: escapeIdentifier(alias) };
 }
@@ -112,7 +117,7 @@ function stringExpr(value: string): ExprString {
 }
 
 function joinEqList(keyMap: Record<string, string>) {
-  return binaryOp("=")({
+  return eq({
     type: "list",
     expressions: Object.keys(keyMap).map((k) =>
       exprRef(...(k.split(".").reverse() as [string, string, string]))
@@ -126,13 +131,61 @@ function joinEqList(keyMap: Record<string, string>) {
 }
 
 function eqList(valuesMap: Record<string, unknown>) {
-  return binaryOp("=")({
+  return eq({
     type: "list",
-    expressions: Object.keys(valuesMap).map((k) => exprRef(...(k.split(".").reverse() as [string, string, string]))),
+    expressions: Object.keys(valuesMap).map((k) =>
+      exprRef(...(k.split(".").reverse() as [string, string, string]))
+    ),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
+}
+
+function cast(operand: Expr, to: Name): ExprCast {
+  return {
+    type: "cast",
+    operand,
+    to,
+  };
+}
+
+function coalesce(...args: Expr[]): ExprCall {
+  return {
+    type: "call",
+    function: { name: "coalesce" },
+    args,
+  };
+}
+
+function count(...args: string[]): ExprCall {
+  return {
+    type: "call",
+    function: { name: "count" },
+    args: args.map((c) => exprRef(...(c.split(".").reverse() as [string, string, string]))),
+  };
+}
+
+const concat = binaryOp("||");
+
+function regex(fields: string[], pattern: string) {
+  const leftExpr = fields.reduce((prev, current) => {
+    const comparison: Expr = coalesce(
+      cast(
+        exprRef(...(current.split(".").reverse() as [string, string, string])),
+        qualifiedName("text"),
+      ),
+      stringExpr(""),
+    );
+    if (prev) {
+      return concat(concat(prev, stringExpr(" ")), comparison);
+    }
+    return comparison;
+  }, undefined as unknown as Expr);
+  return binaryOp("~*")(
+    leftExpr,
+    stringExpr(pattern),
+  );
 }
 
 function makeUpdate(
@@ -170,16 +223,26 @@ function makeDelete(
   };
 }
 
-function where(builder: SqlBuilder, columns: Record<string, unknown>) {
-  const whereMapper = (columns: Record<string, unknown>) =>
+function integer(value: number): ExprInteger {
+  return {
+    type: "integer",
+    value,
+  };
+}
+
+function offset(builder: SqlBuilder, value: number) {
+  const offsetMapper = () =>
     astMapper((_map) => ({
       selection: (s) => ({
         ...s,
-        where: eqList(columns),
+        limit: {
+          ...s.limit,
+          offset: integer(value),
+        },
       }),
     }));
 
-  const statementWithWhere = whereMapper(columns)
+  const statementWithWhere = offsetMapper()
     .statement(
       builder.statement,
     )! as SelectStatement;
@@ -187,6 +250,51 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
     statement: statementWithWhere,
     toSql: () => toSql.statement(statementWithWhere),
   };
+}
+
+function limit(builder: SqlBuilder, value: number) {
+  const limitMapper = () =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        limit: {
+          ...s.limit,
+          limit: integer(value),
+        },
+      }),
+    }));
+
+  const statementWithWhere = limitMapper()
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithWhere,
+    toSql: () => toSql.statement(statementWithWhere),
+  };
+}
+
+function whereExpression(builder: SqlBuilder, filter: Expr) {
+  const whereMapper = () =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        where: filter,
+      }),
+    }));
+
+  const statementWithWhere = whereMapper()
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithWhere,
+    toSql: () => toSql.statement(statementWithWhere),
+  };
+}
+
+function where(builder: SqlBuilder, filter: Record<string, unknown>) {
+  return whereExpression(builder, eqList(filter));
 }
 
 function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBuilder {
@@ -258,9 +366,9 @@ function order(
   };
 }
 
-function selectionLiteral(
+function selectionExpression(
   builder: SqlBuilder,
-  columns: unknown[] | [unknown, string][],
+  columns: Expr[] | [Expr, string][],
 ): SqlBuilder {
   const returningMapper = (columnNames: typeof columns) =>
     astMapper((_map) => ({
@@ -269,9 +377,7 @@ function selectionLiteral(
         columns: [
           ...s.columns ?? [],
           ...columnNames.map((c) =>
-              c instanceof Array
-              ? { expr: jsToSqlLiteral(c[0]), alias: qualifiedName(c[1]) }
-              : { expr: jsToSqlLiteral(c) }
+            c instanceof Array ? { expr: c[0], alias: qualifiedName(c[1]) } : { expr: c }
           ),
         ],
       }),
@@ -285,6 +391,34 @@ function selectionLiteral(
     statement: statementWithReturning,
     toSql: () => toSql.statement(statementWithReturning),
   };
+}
+
+function selectionLiteral(
+  builder: SqlBuilder,
+  columns: unknown[] | [unknown, string][],
+): SqlBuilder {
+  const expressions = columns.map((c) =>
+    c instanceof Array ? [jsToSqlLiteral(c[0]), c[1]] : jsToSqlLiteral(c)
+  ) as Expr[] | [Expr, string][];
+
+  return selectionExpression(
+    builder,
+    expressions,
+  );
+}
+
+function selectionSubquery(
+  builder: SqlBuilder,
+  columns: SqlBuilder[] | [SqlBuilder, string][],
+): SqlBuilder {
+  const expressions = columns.map((c) =>
+    c instanceof Array ? [c[0].statement, c[1]] : c.statement
+  ) as Expr[] | [Expr, string][];
+
+  return selectionExpression(
+    builder,
+    expressions,
+  );
 }
 
 function selection(
@@ -519,7 +653,9 @@ function escapeIdentifier(identifier: string) {
 
 export {
   column,
+  count,
   join,
+  limit,
   makeDelete,
   makeInsert,
   makeInsertFrom,
@@ -528,10 +664,15 @@ export {
   makeUnionAll,
   makeUpdate,
   makeUpsert,
+  offset,
   order,
+  regex,
   returning,
   selection,
+  selectionExpression,
   selectionLiteral,
+  selectionSubquery,
   where,
+  whereExpression,
 };
 export type { SqlBuilder };

@@ -108,6 +108,28 @@ Deno.test(
 );
 
 Deno.test(
+  "Select using subquery",
+  () => {
+    const statement = sql.selectionSubquery(
+      sql.makeSelect("tables", "information_schema"),
+      [[sql.makeSelect("table_subquery"), "subquery"]],
+    );
+    assertEquals(statement.toSql(), "SELECT (SELECT  FROM table_subquery   ) AS subquery  FROM information_schema.tables");
+  },
+);
+
+Deno.test(
+  "Select filtering with expr other than equality",
+  () => {
+    const statement = sql.whereExpression(
+      sql.makeSelect("tables", "information_schema"),
+      sql.regex(["someTextField", "anotherSearchable"], "searchPattern.*") 
+    );
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables   WHERE ((((coalesce ((\"someTextField\"::text ), ('')) ) || (' ')) || (coalesce ((\"anotherSearchable\"::text ), ('')) )) ~* ('searchPattern.*'))");
+  },
+);
+
+Deno.test(
   "Sanitize UPDATE identifiers and values",
   () => {
     const statement = sql.makeUpdate('some_table" SET field = true;--', { "id\",injected": 1, compositeKey: 2 }, { "data\",injected": "test', another = true" });
