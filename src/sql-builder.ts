@@ -162,8 +162,7 @@ function count(...args: string[]): ExprCall {
   return {
     type: "call",
     function: { name: "count" },
-    args: args.map((c) => 
-        exprRef(...(c.split(".").reverse() as [string, string, string])))
+    args: args.map((c) => exprRef(...(c.split(".").reverse() as [string, string, string]))),
   };
 }
 
@@ -670,9 +669,9 @@ export {
   regex,
   returning,
   selection,
+  selectionExpression,
   selectionLiteral,
   selectionSubquery,
-  selectionExpression,
   where,
   whereExpression,
 };
