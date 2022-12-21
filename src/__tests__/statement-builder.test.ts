@@ -45,16 +45,11 @@ Deno.test(
 Deno.test(
   "Real world select",
   () => {
-    const stmtB = sql
-      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
-      .columns([["table_name", "table_name"]], "pk_tco")
-      .join(["tables", "information_schema"], { "tables.id": "pk_tco.id" });
-
-    const stmt = sql
+    const selectReference = sql
       .makeSelect(["referential_constraints", "rco"], "information_schema")
       .columns([["table_name", "table_name"]], "pk_tco")
-      .literals([[null, "referenced_tables"]])
-      .columns([["table_name", "referencing_tables"]], "fk_tco")
+      .literals([[null, "relations"]])
+      .columns([["table_name", "references"]], "fk_tco")
       .columns([["column_name", "foreign_keys"]], "kcu")
       .join(["table_constraints", "fk_tco"], {
         "rco.constraint_name": "fk_tco.constraint_name",
@@ -69,7 +64,28 @@ Deno.test(
         "fk_tco.table_schema": "kcu.table_schema",
       }, "information_schema");
 
-    assertEquals(stmt.toSql(), ``);
+    const selectRelation = sql
+      .makeSelect(["referential_constraints", "rco"], "information_schema")
+      .columns([["table_name", "table_name"]], "fk_tco")
+      .columns([["table_name", "relations"]], "pk_tco")
+      .literals([[null, "references"]])
+      .columns([["column_name", "foreign_keys"]], "kcu")
+      .join(["table_constraints", "fk_tco"], {
+        "rco.constraint_name": "fk_tco.constraint_name",
+        "rco.constraint_schema": "fk_tco.table_schema",
+      }, "information_schema")
+      .join(["table_constraints", "pk_tco"], {
+        "rco.unique_constraint_name": "pk_tco.constraint_name",
+        "rco.unique_constraint_schema": "pk_tco.table_schema",
+      }, "information_schema")
+      .join(["key_column_usage", "kcu"], {
+        "fk_tco.constraint_name": "kcu.constraint_name",
+        "fk_tco.table_schema": "kcu.table_schema",
+      }, "information_schema");
+
+    const stmt = selectReference.where({ "pk_tco.table_name": 'x' }).unionAll(selectRelation.where({ "fk_tco.table_name": "x" }))
+
+    assertEquals(stmt.toSql(), `(SELECT pk_tco .table_name AS table_name , (null) AS relations , fk_tco .table_name AS "references" , kcu .column_name AS foreign_keys  FROM information_schema.referential_constraints  AS rco INNER JOIN information_schema.table_constraints  AS fk_tco ON ((rco .constraint_name, rco .constraint_schema) = (fk_tco .constraint_name, fk_tco .table_schema)) INNER JOIN information_schema.table_constraints  AS pk_tco ON ((rco .unique_constraint_name, rco .unique_constraint_schema) = (pk_tco .constraint_name, pk_tco .table_schema)) INNER JOIN information_schema.key_column_usage  AS kcu ON ((fk_tco .constraint_name, fk_tco .table_schema) = (kcu .constraint_name, kcu .table_schema))  WHERE ((pk_tco .table_name) = (('x'))) ) UNION ALL (SELECT fk_tco .table_name AS table_name , pk_tco .table_name AS relations , (null) AS "references" , kcu .column_name AS foreign_keys  FROM information_schema.referential_constraints  AS rco INNER JOIN information_schema.table_constraints  AS fk_tco ON ((rco .constraint_name, rco .constraint_schema) = (fk_tco .constraint_name, fk_tco .table_schema)) INNER JOIN information_schema.table_constraints  AS pk_tco ON ((rco .unique_constraint_name, rco .unique_constraint_schema) = (pk_tco .constraint_name, pk_tco .table_schema)) INNER JOIN information_schema.key_column_usage  AS kcu ON ((fk_tco .constraint_name, fk_tco .table_schema) = (kcu .constraint_name, kcu .table_schema))  WHERE ((fk_tco .table_name) = (('x'))) )`);
   },
 );
 Deno.test(

@@ -128,7 +128,7 @@ function joinEqList(keyMap: Record<string, string>) {
 function eqList(valuesMap: Record<string, unknown>) {
   return binaryOp("=")({
     type: "list",
-    expressions: Object.keys(valuesMap).map((k) => exprRef(k)),
+    expressions: Object.keys(valuesMap).map((k) => exprRef(...(k.split(".").reverse() as [string, string, string]))),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map(jsToSqlLiteral),
