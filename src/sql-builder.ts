@@ -2,6 +2,7 @@ import {
   astMapper,
   DeleteStatement,
   Expr,
+  ExprBinary,
   ExprRef,
   ExprString,
   From,
@@ -91,6 +92,10 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
     }
   ) as Expr;
 
+const eq = binaryOp("=")
+
+
+
 function aliasedName(table: string, alias: string, schema?: string): QNameAliased {
   return { ...qualifiedName(table, schema), alias: escapeIdentifier(alias) };
 }
@@ -112,7 +117,7 @@ function stringExpr(value: string): ExprString {
 }
 
 function joinEqList(keyMap: Record<string, string>) {
-  return binaryOp("=")({
+  return eq({
     type: "list",
     expressions: Object.keys(keyMap).map((k) =>
       exprRef(...(k.split(".").reverse() as [string, string, string]))
@@ -126,13 +131,20 @@ function joinEqList(keyMap: Record<string, string>) {
 }
 
 function eqList(valuesMap: Record<string, unknown>) {
-  return binaryOp("=")({
+  return eq({
     type: "list",
     expressions: Object.keys(valuesMap).map((k) => exprRef(...(k.split(".").reverse() as [string, string, string]))),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
+}
+
+function regex(field: string, pattern: string) {
+  return binaryOp("~*")(
+    exprRef(...(field.split(".").reverse() as [string, string, string])), 
+    stringExpr(pattern)
+  )
 }
 
 function makeUpdate(
@@ -170,16 +182,16 @@ function makeDelete(
   };
 }
 
-function where(builder: SqlBuilder, columns: Record<string, unknown>) {
-  const whereMapper = (columns: Record<string, unknown>) =>
+function whereExpression(builder: SqlBuilder, filter: Expr) {
+  const whereMapper = () =>
     astMapper((_map) => ({
       selection: (s) => ({
         ...s,
-        where: eqList(columns),
+        where: filter,
       }),
     }));
 
-  const statementWithWhere = whereMapper(columns)
+  const statementWithWhere = whereMapper()
     .statement(
       builder.statement,
     )! as SelectStatement;
@@ -187,6 +199,10 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
     statement: statementWithWhere,
     toSql: () => toSql.statement(statementWithWhere),
   };
+}
+
+function where(builder: SqlBuilder, filter: Record<string, unknown>) {
+  return whereExpression(builder, eqList(filter))
 }
 
 function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBuilder {
@@ -533,5 +549,7 @@ export {
   selection,
   selectionLiteral,
   where,
+  whereExpression,
+  regex
 };
 export type { SqlBuilder };

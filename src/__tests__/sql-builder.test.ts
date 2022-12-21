@@ -108,6 +108,17 @@ Deno.test(
 );
 
 Deno.test(
+  "Select filtering with expr other than equality",
+  () => {
+    const statement = sql.whereExpression(
+      sql.makeSelect("tables", "information_schema"),
+      sql.regex("someTextField", "searchPattern.*") 
+    );
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables   WHERE (\"someTextField\" ~* ('searchPattern.*'))");
+  },
+);
+
+Deno.test(
   "Sanitize UPDATE identifiers and values",
   () => {
     const statement = sql.makeUpdate('some_table" SET field = true;--', { "id\",injected": 1, compositeKey: 2 }, { "data\",injected": "test', another = true" });
