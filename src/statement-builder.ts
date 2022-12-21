@@ -4,6 +4,7 @@ type SqlBuilder = sql.SqlBuilder
 
 type SelectBuilder = SqlBuilder & {
   columns: (columns: Parameters<typeof sql.selection>[1], table?: string) => SelectBuilder 
+  literals: (columns: Parameters<typeof sql.selectionLiteral>[1]) => SelectBuilder 
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
   unionAll: (anotherBuilder: SelectBuilder) => SelectBuilder 
@@ -12,6 +13,12 @@ type SelectBuilder = SqlBuilder & {
 
 function makeSelect(table: string | [string, string], schema?: string): SelectBuilder {
   const builder = sql.makeSelect(table, schema) as SelectBuilder
+  const literals: SelectBuilder["literals"] = (columns) => {
+    const { statement, toSql } = sql.selectionLiteral(builder, columns)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
   const columns: SelectBuilder["columns"] = (columns, table) => {
     const { statement, toSql } = sql.selection(builder, columns, table)
     builder.statement = statement
@@ -44,6 +51,7 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
   }
 
   builder.columns = columns
+  builder.literals = literals
   builder.order = order
   builder.where = where
   builder.unionAll = unionAll

@@ -18,7 +18,7 @@ Deno.test(
   () => {
     const stmt = sql
       .makeSelect(["table_constraints", "pk_tco"], "information_schema")
-      .columns([["table_name", "table_name"]], "pk_tco")
+      .columns([["table_name", "table_name"]], "pk_tco");
 
     assertEquals(
       stmt.toSql(),
@@ -33,22 +33,52 @@ Deno.test(
     const stmt = sql
       .makeSelect(["table_constraints", "pk_tco"], "information_schema")
       .columns([["table_name", "table_name"]], "pk_tco")
-      .unionAll(sql.makeSelect("someOtherTable"))
+      .unionAll(sql.makeSelect("someOtherTable"));
 
     assertEquals(
       stmt.toSql(),
-      "(SELECT pk_tco .table_name AS table_name  FROM information_schema.table_constraints  AS pk_tco  ) UNION ALL (SELECT  FROM \"someOtherTable\"   )",
+      '(SELECT pk_tco .table_name AS table_name  FROM information_schema.table_constraints  AS pk_tco  ) UNION ALL (SELECT  FROM "someOtherTable"   )',
     );
   },
 );
 
+Deno.test(
+  "Real world select",
+  () => {
+    const stmtB = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .columns([["table_name", "table_name"]], "pk_tco")
+      .join(["tables", "information_schema"], { "tables.id": "pk_tco.id" });
+
+    const stmt = sql
+      .makeSelect(["referential_constraints", "rco"], "information_schema")
+      .columns([["table_name", "table_name"]], "pk_tco")
+      .literals([[null, "referenced_tables"]])
+      .columns([["table_name", "referencing_tables"]], "fk_tco")
+      .columns([["column_name", "foreign_keys"]], "kcu")
+      .join(["table_constraints", "fk_tco"], {
+        "rco.constraint_name": "fk_tco.constraint_name",
+        "rco.constraint_schema": "fk_tco.table_schema",
+      }, "information_schema")
+      .join(["table_constraints", "pk_tco"], {
+        "rco.unique_constraint_name": "pk_tco.constraint_name",
+        "rco.unique_constraint_schema": "pk_tco.table_schema",
+      }, "information_schema")
+      .join(["key_column_usage", "kcu"], {
+        "fk_tco.constraint_name": "kcu.constraint_name",
+        "fk_tco.table_schema": "kcu.table_schema",
+      }, "information_schema");
+
+    assertEquals(stmt.toSql(), ``);
+  },
+);
 Deno.test(
   "Select with join",
   () => {
     const stmt = sql
       .makeSelect(["table_constraints", "pk_tco"], "information_schema")
       .columns([["table_name", "table_name"]], "pk_tco")
-      .join("tables", { "tables.id": "pk_tco.id" }, "information_schema")
+      .join("tables", { "tables.id": "pk_tco.id" }, "information_schema");
 
     assertEquals(
       stmt.toSql(),
@@ -56,7 +86,6 @@ Deno.test(
     );
   },
 );
-
 
 Deno.test(
   "UPDATE",
