@@ -108,6 +108,17 @@ Deno.test(
 );
 
 Deno.test(
+  "Select using subquery",
+  () => {
+    const statement = sql.selectionSubquery(
+      sql.makeSelect("tables", "information_schema"),
+      [[sql.makeSelect("table_subquery"), "subquery"]],
+    );
+    assertEquals(statement.toSql(), "SELECT (SELECT  FROM table_subquery   ) AS subquery  FROM information_schema.tables");
+  },
+);
+
+Deno.test(
   "Select filtering with expr other than equality",
   () => {
     const statement = sql.whereExpression(

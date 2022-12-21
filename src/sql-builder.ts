@@ -387,6 +387,35 @@ function selectionLiteral(
   };
 }
 
+function selectionSubquery(
+  builder: SqlBuilder,
+  columns: SqlBuilder[] | [SqlBuilder, string][],
+): SqlBuilder {
+  const returningMapper = (columnNames: typeof columns) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        columns: [
+          ...s.columns ?? [],
+          ...columnNames.map((c) =>
+              c instanceof Array
+              ? { expr: (c[0].statement as SelectStatement), alias: qualifiedName(c[1]) }
+              : { expr: (c.statement as SelectStatement) }
+          ),
+        ],
+      }),
+    }));
+
+  const statementWithReturning = returningMapper(columns)
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithReturning,
+    toSql: () => toSql.statement(statementWithReturning),
+  };
+}
+
 function selection(
   builder: SqlBuilder,
   columns: string[] | [string, string][],
@@ -635,6 +664,7 @@ export {
   returning,
   selection,
   selectionLiteral,
+  selectionSubquery,
   where,
   whereExpression,
 };

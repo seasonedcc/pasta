@@ -5,6 +5,7 @@ type SqlBuilder = sql.SqlBuilder
 type SelectBuilder = SqlBuilder & {
   columns: (columns: Parameters<typeof sql.selection>[1], table?: string) => SelectBuilder 
   literals: (columns: Parameters<typeof sql.selectionLiteral>[1]) => SelectBuilder 
+  subqueries: (columns: Parameters<typeof sql.selectionSubquery>[1]) => SelectBuilder 
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
   filterRegex: (columns: Parameters<typeof sql.regex>[0], pattern: Parameters<typeof sql.regex>[1]) => SelectBuilder 
@@ -18,6 +19,12 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
   const builder = sql.makeSelect(table, schema) as SelectBuilder
   const literals: SelectBuilder["literals"] = (columns) => {
     const { statement, toSql } = sql.selectionLiteral(builder, columns)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+  const subqueries: SelectBuilder["subqueries"] = (columns) => {
+    const { statement, toSql } = sql.selectionSubquery(builder, columns)
     builder.statement = statement
     builder.toSql = toSql
     return builder
@@ -73,6 +80,7 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
 
   builder.columns = columns
   builder.literals = literals
+  builder.subqueries = subqueries
   builder.order = order
   builder.where = where
   builder.filterRegex = filterRegex
