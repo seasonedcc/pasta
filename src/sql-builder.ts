@@ -2,9 +2,9 @@ import {
   astMapper,
   DeleteStatement,
   Expr,
-  ExprBinary,
   ExprCall,
   ExprCast,
+  ExprInteger,
   ExprRef,
   ExprString,
   From,
@@ -212,6 +212,57 @@ function makeDelete(
   return {
     statement,
     toSql: () => toSql.statement(statement),
+  };
+}
+
+function integer(value: number): ExprInteger {
+  return {
+    type: "integer",
+    value,
+  };
+}
+
+function offset(builder: SqlBuilder, value: number) {
+  const offsetMapper = () =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        limit: {
+          ...s.limit,
+          offset: integer(value),
+        },
+      }),
+    }));
+
+  const statementWithWhere = offsetMapper()
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithWhere,
+    toSql: () => toSql.statement(statementWithWhere),
+  };
+}
+
+function limit(builder: SqlBuilder, value: number) {
+  const limitMapper = () =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        limit: {
+          ...s.limit,
+          limit: integer(value),
+        },
+      }),
+    }));
+
+  const statementWithWhere = limitMapper()
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithWhere,
+    toSql: () => toSql.statement(statementWithWhere),
   };
 }
 
@@ -569,6 +620,7 @@ function escapeIdentifier(identifier: string) {
 export {
   column,
   join,
+  limit,
   makeDelete,
   makeInsert,
   makeInsertFrom,
@@ -577,6 +629,7 @@ export {
   makeUnionAll,
   makeUpdate,
   makeUpsert,
+  offset,
   order,
   regex,
   returning,

@@ -28,6 +28,21 @@ Deno.test(
 );
 
 Deno.test(
+  "Select with limit and offset",
+  () => {
+    const stmt = sql
+      .makeSelect(["table_constraints", "pk_tco"], "information_schema")
+      .limit(10)
+      .offset(5)
+
+    assertEquals(
+      stmt.toSql(),
+      'SELECT  FROM information_schema.table_constraints  AS pk_tco  OFFSET (5)LIMIT (10)',
+    );
+  },
+);
+
+Deno.test(
   "Select from union",
   () => {
     const stmt = sql

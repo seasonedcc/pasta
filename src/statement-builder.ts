@@ -10,6 +10,8 @@ type SelectBuilder = SqlBuilder & {
   filterRegex: (columns: Parameters<typeof sql.regex>[0], pattern: Parameters<typeof sql.regex>[1]) => SelectBuilder 
   unionAll: (anotherBuilder: SelectBuilder) => SelectBuilder 
   join: (relation: Parameters<typeof sql.join>[1], on: Parameters<typeof sql.join>[2], schema?: Parameters<typeof sql.join>[3], type?: Parameters<typeof sql.join>[4]) => SelectBuilder
+  limit: (value: Parameters<typeof sql.limit>[1]) => SelectBuilder
+  offset: (value: Parameters<typeof sql.offset>[1]) => SelectBuilder
 }
 
 function makeSelect(table: string | [string, string], schema?: string): SelectBuilder {
@@ -56,6 +58,18 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
     builder.toSql = toSql
     return builder
   }
+  const limit: SelectBuilder["limit"] = (value) => {
+    const { statement, toSql } = sql.limit(builder, value)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+  const offset: SelectBuilder["offset"] = (value) => {
+    const { statement, toSql } = sql.offset(builder, value)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
 
   builder.columns = columns
   builder.literals = literals
@@ -64,6 +78,8 @@ function makeSelect(table: string | [string, string], schema?: string): SelectBu
   builder.filterRegex = filterRegex
   builder.unionAll = unionAll
   builder.join = join
+  builder.limit = limit
+  builder.offset = offset
   return builder
 }
 
