@@ -145,7 +145,7 @@ function makeUpdate(
     "table": qualifiedName(table),
     "sets": Object.keys(setValues).filter((k) => setValues[k] !== undefined).map((k) => ({
       "column": qualifiedName(k),
-      "value": jsToSqlLiteral(setValues[k])
+      "value": jsToSqlLiteral(setValues[k]),
     })),
     "where": eqList(keyValues),
   };
@@ -258,6 +258,35 @@ function order(
   };
 }
 
+function selectionLiteral(
+  builder: SqlBuilder,
+  columns: unknown[] | [unknown, string][],
+): SqlBuilder {
+  const returningMapper = (columnNames: typeof columns) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        columns: [
+          ...s.columns ?? [],
+          ...columnNames.map((c) =>
+              c instanceof Array
+              ? { expr: jsToSqlLiteral(c[0]), alias: qualifiedName(c[1]) }
+              : { expr: jsToSqlLiteral(c) }
+          ),
+        ],
+      }),
+    }));
+
+  const statementWithReturning = returningMapper(columns)
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithReturning,
+    toSql: () => toSql.statement(statementWithReturning),
+  };
+}
+
 function selection(
   builder: SqlBuilder,
   columns: string[] | [string, string][],
@@ -297,7 +326,8 @@ function jsToSqlLiteral(value: unknown): Expr {
     ? { type: "default" }
     : value === null
     ? { type: "null" }
-    : typeof value === "object" && "returnType" in value ? (value as unknown as Expr)
+    : typeof value === "object" && "returnType" in value
+    ? (value as unknown as Expr)
     : { value: JSON.stringify(value), type: "string" };
 }
 
@@ -325,7 +355,7 @@ function join(
             name,
             join: {
               type,
-              on: joinEqList(on)
+              on: joinEqList(on),
             },
           },
         ],
@@ -501,6 +531,7 @@ export {
   order,
   returning,
   selection,
+  selectionLiteral,
   where,
 };
 export type { SqlBuilder };

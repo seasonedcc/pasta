@@ -84,6 +84,16 @@ Deno.test(
   },
 );
 
+Deno.test(
+  "Select literals using alias",
+  () => {
+    const statement = sql.selectionLiteral(
+      sql.makeSelect("tables", "information_schema"),
+      [["some name", "name"], [null, "null_value"]],
+    );
+    assertEquals(statement.toSql(), "SELECT ('some name') AS name , (null) AS null_value  FROM information_schema.tables");
+  },
+);
 
 Deno.test(
   "Select using order by",
