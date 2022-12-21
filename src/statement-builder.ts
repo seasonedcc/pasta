@@ -4,33 +4,58 @@ type SqlBuilder = sql.SqlBuilder
 
 type SelectBuilder = SqlBuilder & {
   columns: (columns: Parameters<typeof sql.selection>[1], table?: string) => SelectBuilder 
+  literals: (columns: Parameters<typeof sql.selectionLiteral>[1]) => SelectBuilder 
   order: (columns: Parameters<typeof sql.order>[1], table?: string) => SelectBuilder 
   where: (columns: Parameters<typeof sql.where>[1]) => SelectBuilder 
+  unionAll: (anotherBuilder: SelectBuilder) => SelectBuilder 
+  join: (relation: Parameters<typeof sql.join>[1], on: Parameters<typeof sql.join>[2], schema?: Parameters<typeof sql.join>[3], type?: Parameters<typeof sql.join>[4]) => SelectBuilder
 }
 
-function makeSelect(table: string, schema?: string): SelectBuilder {
+function makeSelect(table: string | [string, string], schema?: string): SelectBuilder {
   const builder = sql.makeSelect(table, schema) as SelectBuilder
-  const columns = (columns: Parameters<typeof sql.selection>[1], table?: string) => {
+  const literals: SelectBuilder["literals"] = (columns) => {
+    const { statement, toSql } = sql.selectionLiteral(builder, columns)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+  const columns: SelectBuilder["columns"] = (columns, table) => {
     const { statement, toSql } = sql.selection(builder, columns, table)
     builder.statement = statement
     builder.toSql = toSql
     return builder
   }
-  const order = (columns: Parameters<typeof sql.order>[1], table?: string) => {
+  const order: SelectBuilder["order"] = (columns, table) => {
     const { statement, toSql } = sql.order(builder, columns, table)
     builder.statement = statement
     builder.toSql = toSql
     return builder
   }
-  const where = (columns: Parameters<typeof sql.where>[1]) => {
+  const where: SelectBuilder["where"] = (columns) => {
     const { statement, toSql } = sql.where(builder, columns)
     builder.statement = statement
     builder.toSql = toSql
     return builder
   }
+  const unionAll: SelectBuilder["unionAll"] = (anotherBuilder) => {
+    const { statement, toSql } = sql.makeUnionAll(builder, anotherBuilder)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+  const join: SelectBuilder["join"] = (relation, on, schema, type) => {
+    const { statement, toSql } = sql.join(builder, relation, on, schema, type)
+    builder.statement = statement
+    builder.toSql = toSql
+    return builder
+  }
+
   builder.columns = columns
+  builder.literals = literals
   builder.order = order
   builder.where = where
+  builder.unionAll = unionAll
+  builder.join = join
   return builder
 }
 

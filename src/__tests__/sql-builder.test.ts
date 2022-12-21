@@ -29,6 +29,38 @@ Deno.test(
 );
 
 Deno.test(
+  "Make a select using a schema and alias",
+  () => {
+    const statement = sql.makeSelect(["tables", "t"], "information_schema");
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables  AS t");
+  },
+);
+
+Deno.test(
+  "Make a select from union all",
+  () => {
+    const statementA = sql.makeSelect(["tables", "t1"], "information_schema");
+    const statementB = sql.makeSelect(["tables", "t2"], "information_schema");
+    const statement = sql.makeUnionAll(statementA, statementB)
+    assertEquals(statement.toSql(), "(SELECT  FROM information_schema.tables  AS t1  ) UNION ALL (SELECT  FROM information_schema.tables  AS t2  )");
+  },
+);
+
+Deno.test(
+  "Make a select using an inner join",
+  () => {
+    const statement = sql.join(
+      sql.makeSelect("tables", "information_schema"),
+      "columns",
+      { "tables.id": "columns.table_id" },
+      "information_schema"
+    );
+    assertEquals(statement.toSql(), "SELECT  FROM information_schema.tables  INNER JOIN information_schema.columns  ON ((tables .id) = (columns .table_id))");
+  },
+);
+
+
+Deno.test(
   "Select columns",
   () => {
     const statement = sql.selection(
@@ -52,6 +84,16 @@ Deno.test(
   },
 );
 
+Deno.test(
+  "Select literals using alias",
+  () => {
+    const statement = sql.selectionLiteral(
+      sql.makeSelect("tables", "information_schema"),
+      [["some name", "name"], [null, "null_value"]],
+    );
+    assertEquals(statement.toSql(), "SELECT ('some name') AS name , (null) AS null_value  FROM information_schema.tables");
+  },
+);
 
 Deno.test(
   "Select using order by",

@@ -9,6 +9,7 @@ import {
   Name,
   OrderByStatement,
   QName,
+  QNameAliased,
   SelectedColumn,
   SelectStatement,
   Statement,
@@ -90,6 +91,10 @@ const binaryOp = (op: string) => (left: Expr, right: Expr) =>
     }
   ) as Expr;
 
+function aliasedName(table: string, alias: string, schema?: string): QNameAliased {
+  return { ...qualifiedName(table, schema), alias: escapeIdentifier(alias) };
+}
+
 function qualifiedName(table: string, schema?: string): QName {
   return { schema: schema ? escapeIdentifier(schema) : undefined, name: escapeIdentifier(table) };
 }
@@ -106,14 +111,29 @@ function stringExpr(value: string): ExprString {
   return { "type": "string", value: escapeLiteral(value) };
 }
 
-const eqList = (valuesMap: Record<string, unknown>) =>
-  binaryOp("=")({
+function joinEqList(keyMap: Record<string, string>) {
+  return binaryOp("=")({
     type: "list",
-    expressions: Object.keys(valuesMap).map((k) => exprRef(k)),
+    expressions: Object.keys(keyMap).map((k) =>
+      exprRef(...(k.split(".").reverse() as [string, string, string]))
+    ),
+  }, {
+    type: "list",
+    expressions: Object.values(keyMap).map((v) =>
+      exprRef(...(v.split(".").reverse() as [string, string, string]))
+    ),
+  }) as Expr;
+}
+
+function eqList(valuesMap: Record<string, unknown>) {
+  return binaryOp("=")({
+    type: "list",
+    expressions: Object.keys(valuesMap).map((k) => exprRef(...(k.split(".").reverse() as [string, string, string]))),
   }, {
     type: "list",
     expressions: Object.values(valuesMap).map(jsToSqlLiteral),
   }) as Expr;
+}
 
 function makeUpdate(
   table: string,
@@ -125,7 +145,7 @@ function makeUpdate(
     "table": qualifiedName(table),
     "sets": Object.keys(setValues).filter((k) => setValues[k] !== undefined).map((k) => ({
       "column": qualifiedName(k),
-      "value": jsToSqlLiteral(setValues[k])
+      "value": jsToSqlLiteral(setValues[k]),
     })),
     "where": eqList(keyValues),
   };
@@ -169,10 +189,34 @@ function where(builder: SqlBuilder, columns: Record<string, unknown>) {
   };
 }
 
-function makeSelect(table: string, schema?: string): SqlBuilder {
+function makeUnionAll(leftBuilder: SqlBuilder, rightBuilder: SqlBuilder): SqlBuilder {
+  const [{ statement: left }, { statement: right }] = [leftBuilder, rightBuilder];
+  if (left.type === "update" || left.type === "insert" || left.type === "delete") {
+    throw new Error("Union must have 2 Select statements");
+  }
+  if (right.type === "update" || right.type === "insert" || right.type === "delete") {
+    throw new Error("Union must have 2 Select statements");
+  }
+  const statement: Statement = {
+    type: "union all",
+    left,
+    right,
+  };
+  return {
+    statement,
+    toSql: () => toSql.statement(statement),
+  };
+}
+
+function makeSelect(table: string | [string, string], schema?: string): SqlBuilder {
+  const tableName = table instanceof Array ? table[0] : table;
+  const name = table instanceof Array
+    ? aliasedName(tableName, table[1], schema)
+    : qualifiedName(tableName, schema);
+
   const statement: Statement = {
     "columns": [],
-    "from": [{ "type": "table", "name": qualifiedName(table, schema) }],
+    "from": [{ "type": "table", name }],
     "type": "select",
   };
 
@@ -214,6 +258,35 @@ function order(
   };
 }
 
+function selectionLiteral(
+  builder: SqlBuilder,
+  columns: unknown[] | [unknown, string][],
+): SqlBuilder {
+  const returningMapper = (columnNames: typeof columns) =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        columns: [
+          ...s.columns ?? [],
+          ...columnNames.map((c) =>
+              c instanceof Array
+              ? { expr: jsToSqlLiteral(c[0]), alias: qualifiedName(c[1]) }
+              : { expr: jsToSqlLiteral(c) }
+          ),
+        ],
+      }),
+    }));
+
+  const statementWithReturning = returningMapper(columns)
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithReturning,
+    toSql: () => toSql.statement(statementWithReturning),
+  };
+}
+
 function selection(
   builder: SqlBuilder,
   columns: string[] | [string, string][],
@@ -223,13 +296,16 @@ function selection(
     astMapper((_map) => ({
       selection: (s) => ({
         ...s,
-        columns: columnNames.map((c) =>
-          table
-            ? column(table, c)
-            : c instanceof Array
-            ? { expr: exprRef(c[0]), alias: qualifiedName(c[1]) }
-            : { expr: exprRef(c) }
-        ),
+        columns: [
+          ...s.columns ?? [],
+          ...columnNames.map((c) =>
+            table
+              ? column(table, c)
+              : c instanceof Array
+              ? { expr: exprRef(c[0]), alias: qualifiedName(c[1]) }
+              : { expr: exprRef(c) }
+          ),
+        ],
       }),
     }));
 
@@ -250,8 +326,50 @@ function jsToSqlLiteral(value: unknown): Expr {
     ? { type: "default" }
     : value === null
     ? { type: "null" }
-    : typeof value === "object" && "returnType" in value ? (value as unknown as Expr)
+    : typeof value === "object" && "returnType" in value
+    ? (value as unknown as Expr)
     : { value: JSON.stringify(value), type: "string" };
+}
+
+// table: string | [string, string], schema?: string
+function join(
+  builder: SqlBuilder,
+  relation: string | [string, string],
+  on: Record<string, string>,
+  schema?: string,
+  type: "INNER JOIN" = "INNER JOIN",
+): SqlBuilder {
+  const tableName = relation instanceof Array ? relation[0] : relation;
+  const name = relation instanceof Array
+    ? aliasedName(tableName, relation[1], schema)
+    : qualifiedName(tableName, schema);
+
+  const joinMapper = () =>
+    astMapper((_map) => ({
+      selection: (s) => ({
+        ...s,
+        from: [
+          ...s.from ?? [],
+          {
+            type: "table",
+            name,
+            join: {
+              type,
+              on: joinEqList(on),
+            },
+          },
+        ],
+      }),
+    }));
+
+  const statementWithJoin = joinMapper()
+    .statement(
+      builder.statement,
+    )! as SelectStatement;
+  return {
+    statement: statementWithJoin,
+    toSql: () => toSql.statement(statementWithJoin),
+  };
 }
 
 function makeInsert(
@@ -401,16 +519,19 @@ function escapeIdentifier(identifier: string) {
 
 export {
   column,
+  join,
   makeDelete,
   makeInsert,
   makeInsertFrom,
   makeInsertWith,
   makeSelect,
+  makeUnionAll,
   makeUpdate,
   makeUpsert,
   order,
   returning,
   selection,
+  selectionLiteral,
   where,
 };
 export type { SqlBuilder };
