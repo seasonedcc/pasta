@@ -10,7 +10,7 @@ import {
   TableName,
 } from "./schema.ts";
 
-import { sql } from "https://deno.land/x/pasta@0.0.7/mod.ts";
+import { internal as sql } from "https://deno.land/x/pasta@0.0.12/mod.ts";
 
 type ReturningBuilder<T extends TableName> = sql.SqlBuilder & {
   returning: (options: ColumnNamesOf<T>) => ReturningBuilder<T>;

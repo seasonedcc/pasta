@@ -101,7 +101,7 @@ import {
   TableName,
 } from "./schema.ts";
 
-import { sql } from "${pastaLib}";
+import { internal as sql } from "${pastaLib}";
 
 type ReturningBuilder<T extends TableName> = sql.SqlBuilder & {
   returning: (options: ColumnNamesOf<T>) => ReturningBuilder<T>;
