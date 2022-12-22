@@ -47,7 +47,7 @@ Deno.test(
   () => {
     const stmt = sql
       .makeSelect(["table_constraints", "pk_tco"], "information_schema")
-      .expressions([sql.count("*")]);
+      .expressions([sql.count()]);
 
     assertEquals(
       stmt.toSql(),

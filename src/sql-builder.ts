@@ -158,11 +158,11 @@ function coalesce(...args: Expr[]): ExprCall {
   };
 }
 
-function count(...args: string[]): ExprCall {
+function count(expr?: string): ExprCall {
   return {
     type: "call",
     function: { name: "count" },
-    args: args.map((c) => exprRef(...(c.split(".").reverse() as [string, string, string]))),
+    args: [exprRef(...((expr ?? "*").split(".").reverse() as [string, string, string]))],
   };
 }
 
