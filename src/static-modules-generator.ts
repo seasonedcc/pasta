@@ -114,33 +114,6 @@ type SelectBuilder<T extends TableName> = ReturningBuilder<T> & {
   unique: (whereMap: KeysOf<T>) => SelectBuilder<T>;
 };
 
-function addSelectReturning<T extends TableName>(builder: sql.SqlBuilder) {
-  return {
-    ...builder,
-    returning: function (options: ColumnNamesOf<T>): ReturningBuilder<T> {
-      return addSelectReturning(sql.selection(builder, options.map(String)));
-    },
-  };
-}
-
-function addWhere<T extends TableName>(builder: ReturningBuilder<T>) {
-  return {
-    ...builder,
-    where: function (whereMap: ColumnsOf<T>): ReturningBuilder<T> {
-      return addSelectReturning(sql.where(builder, whereMap));
-    },
-  } as SelectBuilder<T>;
-}
-
-function addUnique<T extends TableName>(builder: ReturningBuilder<T>) {
-  return {
-    ...builder,
-    unique: function (whereMap: KeysOf<T>): ReturningBuilder<T> {
-      return addSelectReturning(sql.where(builder, whereMap));
-    },
-  } as SelectBuilder<T>;
-}
-
 // Public functions
 
 function insert<T extends TableName>(table: T): (valueMap: ColumnsOf<T>) => InsertBuilder<T> {
@@ -288,7 +261,32 @@ function insertWith<T1 extends TableName>(contextTable: T1, context: ReturningBu
 }
 
 function select<T extends TableName>(table: T): () => SelectBuilder<T> {
-  return () => addUnique<T>(addWhere<T>(addSelectReturning<T>(sql.makeSelect(table))));
+  return () => {
+    const builder = sql.makeSelect(table) as SelectBuilder<T>;
+    const returning: ReturningBuilder<T>["returning"] = (options) => {
+      const { statement, toSql } = sql.selection(builder, options.map(String));
+      builder.statement = statement;
+      builder.toSql = toSql;
+      return builder;
+    };
+    const where: SelectBuilder<T>["where"] = (options) => {
+      const { statement, toSql } = sql.where(builder, options);
+      builder.statement = statement;
+      builder.toSql = toSql;
+      return builder;
+    };
+    const unique: SelectBuilder<T>["unique"] = (options) => {
+      const { statement, toSql } = sql.where(builder, options);
+      builder.statement = statement;
+      builder.toSql = toSql;
+      return builder;
+    };
+
+    builder.returning = returning;
+    builder.where = where;
+    builder.unique = unique;
+    return builder;
+  };
 }
 
 export { insert, insertWith, select, update, upsert };
@@ -304,9 +302,4 @@ export { functions } from "./pg-catalog.ts";
 `;
 }
 
-export {
-  generateIndex,
-  generatePgCatalog,
-  generateSchema,
-  generateTypedStatementBuilder,
-};
+export { generateIndex, generatePgCatalog, generateSchema, generateTypedStatementBuilder };
