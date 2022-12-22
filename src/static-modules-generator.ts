@@ -114,17 +114,6 @@ type SelectBuilder<T extends TableName> = ReturningBuilder<T> & {
   unique: (whereMap: KeysOf<T>) => SelectBuilder<T>;
 };
 
-function addReturning<T extends TableName>(builder: sql.SqlBuilder): ReturningBuilder<T> {
-  return {
-    ...builder,
-    returning: function (
-      options: ColumnNamesOf<T>,
-    ): ReturningBuilder<T> {
-      return addReturning(sql.returning(builder, options.map(String)));
-    },
-  };
-}
-
 function addSelectReturning<T extends TableName>(builder: sql.SqlBuilder) {
   return {
     ...builder,
@@ -150,93 +139,6 @@ function addUnique<T extends TableName>(builder: ReturningBuilder<T>) {
       return addSelectReturning(sql.where(builder, whereMap));
     },
   } as SelectBuilder<T>;
-}
-
-function addAssociate<T extends TableName>(
-  table: T,
-  builder: ReturningBuilder<T>,
-): InsertBuilder<T> {
-  const builderWithMxNAssociation = <T extends TableName>(
-    builder: ReturningBuilder<T>,
-    association: MxNAssociation,
-    associatedValues: Record<string, unknown>,
-  ) => {
-    const { fks, associativeTable } = association;
-    const targetAssociationColumns = Object.keys(fks);
-    const sourceColumns = targetAssociationColumns.map((
-      c,
-    ) => (sql.column(...fks[c])));
-    const returningFksAssociation = Object.values(fks).filter((
-      [fkTable],
-    ) => (fkTable == association.table))
-      .map(([_, fkColumn]) => (fkColumn));
-
-    const withStatement = sql.makeInsertWith(
-      association.table,
-      sql.returning(
-        sql.makeInsert(association.table, associatedValues),
-        returningFksAssociation,
-      ),
-      sql.makeInsertWith(
-        table,
-        builder,
-        sql.makeInsertFrom(associativeTable, sourceColumns, targetAssociationColumns),
-      ),
-    );
-    return addReturning<T>(withStatement);
-  };
-
-  const builderWith1xNAssociation = (
-    builder: ReturningBuilder<T>,
-    association: NAssociation,
-    associatedValues: Record<string, unknown>,
-  ) => {
-    const { fks, table: associedTable } = association;
-
-    const returningFksAssociation = Object.values(fks);
-
-    const sourceFkColumns = Object.keys(fks).map((
-      k,
-    ) => (sql.column(table, fks[k])));
-
-    const sourceValueColumns = Object.keys(associatedValues).map((
-      k,
-    ) => (sql.column(String(associatedValues[k]))));
-
-    const withStatement = sql.makeInsertWith(
-      table,
-      sql.returning(builder, returningFksAssociation),
-      sql.makeInsertFrom(
-        associedTable,
-        [...sourceFkColumns, ...sourceValueColumns],
-        [...Object.keys(fks), ...Object.keys(associatedValues)],
-      ),
-    );
-    return addReturning<T>(withStatement);
-  };
-
-  const associate = (associationMap: AssociationsOf<T>) => {
-    const newBuilder = Object.entries(associationMap).reduce(
-      (previous, [associated, associatedValues]) => {
-        const association = associations[table][associated];
-        const pks = association.kind === "1xN"
-          ? Object.values(association.fks)
-          : Object.values(association.fks).filter((
-            [associatedTable, _column],
-          ) => associatedTable === table).map(([_table, column]) => column);
-
-        const returningPks = previous.returning(pks as ColumnNamesOf<T>);
-
-        return association.kind === "1xN"
-          ? builderWith1xNAssociation(returningPks, association, associatedValues)
-          : builderWithMxNAssociation(returningPks, association, associatedValues);
-      },
-      builder,
-    );
-
-    return addAssociate(table, newBuilder);
-  };
-  return { ...builder, associate };
 }
 
 // Public functions
