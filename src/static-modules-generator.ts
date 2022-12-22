@@ -253,22 +253,49 @@ function insert<T extends TableName>(table: T): (valueMap: ColumnsOf<T>) => Inse
 function upsert<T extends TableName>(
   table: T,
 ): (insertValues: ColumnsOf<T>, updateValues?: ColumnsOf<T>) => ReturningBuilder<T> {
-  return (insertValues, updateValues) =>
-    addReturning(sql.makeUpsert(table, insertValues, updateValues));
+  return (insertValues, updateValues) => {
+    const builder = sql.makeUpsert(table, insertValues, updateValues) as ReturningBuilder<T>;
+    const returning: ReturningBuilder<T>["returning"] = (options) => {
+      const { statement, toSql } = sql.returning(builder, options.map(String));
+      builder.statement = statement;
+      builder.toSql = toSql;
+      return builder;
+    };
+
+    builder.returning = returning;
+    return builder;
+  };
 }
 
 function update<T extends TableName>(
   table: T,
 ): (keyValues: KeysOf<T>, setValues: ColumnsOf<T>) => ReturningBuilder<T> {
-  return (keyValues, setValues) =>
-    addReturning(sql.makeUpdate(table, keyValues, setValues));
+  return (keyValues, setValues) => {
+    const builder = sql.makeUpdate(table, keyValues, setValues) as ReturningBuilder<T>;
+    const returning: ReturningBuilder<T>["returning"] = (options) => {
+      const { statement, toSql } = sql.returning(builder, options.map(String));
+      builder.statement = statement;
+      builder.toSql = toSql;
+      return builder;
+    };
+
+    builder.returning = returning;
+    return builder;
+  };
 }
 
 function insertWith<T1 extends TableName>(contextTable: T1, context: ReturningBuilder<T1>) {
   return function <T2 extends TableName>(insert: ReturningBuilder<T2>) {
-    return addReturning<T2>(
-      sql.makeInsertWith(contextTable, context, insert),
-    );
+    const builder = sql.makeInsertWith(contextTable, context, insert) as ReturningBuilder<T2>;
+    const returning: ReturningBuilder<T2>["returning"] = (options) => {
+      const { statement, toSql } = sql.returning(builder, options.map(String));
+      builder.statement = statement;
+      builder.toSql = toSql;
+      return builder;
+    };
+
+    builder.returning = returning;
+    return builder;
   };
 }
 
